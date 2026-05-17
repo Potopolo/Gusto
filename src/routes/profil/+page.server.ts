@@ -1,0 +1,82 @@
+import { error, fail, redirect, type Actions } from '@sveltejs/kit';
+import { db } from '$lib/server/db';
+import { profiles, equipment, users, type Profile } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import type { PageServerLoad } from './$types';
+
+const profileFormSchema = z.object({
+  labelFr: z.string().min(1).max(40),
+  age: z.coerce.number().int().min(1).max(120).nullable(),
+  heightCm: z.coerce.number().min(50).max(250).nullable(),
+  activityLevel: z.enum(['sedentary', 'light', 'moderate', 'active']),
+  goalPhase: z.enum(['loss', 'maintain']),
+  dailyPointsTarget: z.coerce.number().int().min(0).max(60)
+});
+
+export const load: PageServerLoad = async ({ locals }) => {
+  if (!locals.currentUser) throw redirect(303, '/choisir-profil');
+
+  const [profile] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.userId, locals.currentUser.id))
+    .limit(1);
+
+  if (!profile) throw error(500, 'Profile not seeded');
+
+  const allEquipment = await db.select().from(equipment).orderBy(equipment.nameFr);
+
+  return {
+    profile: profile as Profile,
+    equipment: allEquipment
+  };
+};
+
+export const actions: Actions = {
+  saveProfile: async ({ request, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
+    const data = await request.formData();
+    const raw = {
+      labelFr: data.get('labelFr'),
+      age: data.get('age') || null,
+      heightCm: data.get('heightCm') || null,
+      activityLevel: data.get('activityLevel'),
+      goalPhase: data.get('goalPhase'),
+      dailyPointsTarget: data.get('dailyPointsTarget')
+    };
+
+    const parsed = profileFormSchema.safeParse(raw);
+    if (!parsed.success) {
+      return fail(400, { error: 'Données invalides.', issues: parsed.error.flatten() });
+    }
+
+    await db
+      .update(users)
+      .set({ labelFr: parsed.data.labelFr })
+      .where(eq(users.id, locals.currentUser.id));
+
+    await db
+      .update(profiles)
+      .set({
+        age: parsed.data.age,
+        heightCm: parsed.data.heightCm,
+        activityLevel: parsed.data.activityLevel,
+        goalPhase: parsed.data.goalPhase,
+        dailyPointsTarget: parsed.data.dailyPointsTarget
+      })
+      .where(eq(profiles.userId, locals.currentUser.id));
+
+    return { saved: 'profile' };
+  },
+
+  toggleEquipment: async ({ request }) => {
+    const data = await request.formData();
+    const id = parseInt((data.get('id') ?? '').toString(), 10);
+    const owned = data.get('owned') === 'true';
+    if (!Number.isFinite(id)) return fail(400);
+    await db.update(equipment).set({ owned }).where(eq(equipment.id, id));
+    return { saved: 'equipment' };
+  }
+};
