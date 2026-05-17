@@ -5,7 +5,7 @@
     $props();
 </script>
 
-<header class="sticky top-0 z-10 bg-gusto-green shadow-[0_16px_32px_-8px_rgba(0,0,0,0.75)]">
+<header class="sticky top-0 z-10 bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)]">
   <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
     <a href="/" class="flex items-center" aria-label="Gusto — accueil">
       <img src="/icons/logo-full-pink.png" alt="Gusto" class="h-12 w-auto sm:h-16" />
