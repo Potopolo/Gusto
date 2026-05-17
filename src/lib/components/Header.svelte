@@ -5,12 +5,10 @@
     $props();
 </script>
 
-<header
-  class="sticky top-0 z-10 bg-gusto-green shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]"
->
-  <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4">
+<header class="sticky top-0 z-10 bg-gusto-green shadow-[0_16px_32px_-8px_rgba(0,0,0,0.75)]">
+  <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
     <a href="/" class="flex items-center" aria-label="Gusto — accueil">
-      <img src="/icons/logo-full-pink.png" alt="Gusto" class="h-16 w-auto sm:h-20" />
+      <img src="/icons/logo-full-pink.png" alt="Gusto" class="h-12 w-auto sm:h-16" />
     </a>
 
     <nav class="ml-auto flex items-center gap-4 text-base sm:gap-6">
