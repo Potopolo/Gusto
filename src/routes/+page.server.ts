@@ -12,7 +12,8 @@ export const load: PageServerLoad = async () => {
       photoUrl: recipes.photoUrl,
       servings: recipes.servings,
       servingsUnit: recipes.servingsUnit,
-      pointsPerServing: recipes.pointsPerServing
+      pointsPerServing: recipes.pointsPerServing,
+      prepMinutes: recipes.prepMinutes
     })
     .from(recipes)
     .orderBy(desc(recipes.fetchedAt))

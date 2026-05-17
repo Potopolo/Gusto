@@ -5,17 +5,31 @@
     $props();
 </script>
 
-<header class="bg-gusto-green">
+<header
+  class="sticky top-0 z-10 bg-gusto-green shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]"
+>
   <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4">
     <a href="/" class="flex items-center" aria-label="Gusto — accueil">
       <img src="/icons/logo-full-pink.png" alt="Gusto" class="h-16 w-auto sm:h-20" />
     </a>
 
-    <nav class="ml-auto flex items-center gap-3 text-sm sm:gap-5">
-      <a href="/" class="text-gusto-cream/80 hover:text-gusto-cream">Accueil</a>
-      <a href="/recettes" class="text-gusto-cream/80 hover:text-gusto-cream">Recettes</a>
-      <a href="/menus" class="text-gusto-cream/80 hover:text-gusto-cream">Menus</a>
-      <a href="/profil" class="text-gusto-cream/80 hover:text-gusto-cream">Profil</a>
+    <nav class="ml-auto flex items-center gap-4 text-base sm:gap-6">
+      <a
+        href="/"
+        class="text-gusto-cream/80 transition hover:font-bold hover:text-gusto-cream"
+      >Accueil</a>
+      <a
+        href="/recettes"
+        class="text-gusto-cream/80 transition hover:font-bold hover:text-gusto-cream"
+      >Recettes</a>
+      <a
+        href="/menus"
+        class="text-gusto-cream/80 transition hover:font-bold hover:text-gusto-cream"
+      >Menus</a>
+      <a
+        href="/profil"
+        class="text-gusto-cream/80 transition hover:font-bold hover:text-gusto-cream"
+      >Profil</a>
 
       {#if currentUser}
         <a

@@ -11,6 +11,7 @@ export type RecipeListItem = {
   servings: number | null;
   servingsUnit: string | null;
   pointsPerServing: number | null;
+  prepMinutes: number | null;
   categories: Array<{ slug: string; nameFr: string; kind: string }>;
 };
 
@@ -94,7 +95,8 @@ export const load: PageServerLoad = async ({ url }) => {
       photoUrl: recipes.photoUrl,
       servings: recipes.servings,
       servingsUnit: recipes.servingsUnit,
-      pointsPerServing: recipes.pointsPerServing
+      pointsPerServing: recipes.pointsPerServing,
+      prepMinutes: recipes.prepMinutes
     })
     .from(recipes)
     .where(whereClause)

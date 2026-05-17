@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatMinutes } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
   import type { PageData } from './$types';
 
@@ -7,7 +8,7 @@
 
 <section class="space-y-8">
   <header class="space-y-3">
-    <h1 class="text-2xl font-semibold text-gusto-cream">
+    <h1 class="text-3xl font-normal text-gusto-pink">
       Bonjour {data.currentUser?.labelFr ?? ''}.
     </h1>
     <p class="text-gusto-cream/80">
@@ -77,15 +78,22 @@
                 {/if}
               </div>
               <div class="space-y-1 p-3">
-                <h3 class="text-sm font-medium leading-snug text-gusto-green-900">
+                <h3 class="text-base font-normal leading-snug text-gusto-green-900">
                   {recipe.nameFr}
                 </h3>
-                {#if recipe.servings}
-                  <p class="text-xs text-gusto-green-700/70">
-                    {recipe.servings}
-                    {singularizeUnit(recipe.servingsUnit)}{recipe.servings > 1 ? 's' : ''}
-                  </p>
-                {/if}
+                <p class="flex flex-wrap items-center gap-x-2 text-xs text-gusto-green-700/70">
+                  <span class="inline-flex items-center gap-1">
+                    <span aria-hidden="true">⏱</span>
+                    {formatMinutes(recipe.prepMinutes)}
+                  </span>
+                  {#if recipe.servings}
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      {recipe.servings}
+                      {singularizeUnit(recipe.servingsUnit)}{recipe.servings > 1 ? 's' : ''}
+                    </span>
+                  {/if}
+                </p>
               </div>
             </a>
           </li>

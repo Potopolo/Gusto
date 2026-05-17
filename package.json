@@ -13,6 +13,7 @@
     "db:seed": "tsx --env-file=.env.local src/lib/server/db/seed.ts",
     "db:reset": "rimraf data/local.db && npm run db:migrate && npm run db:seed",
     "scrape:amandine": "tsx --env-file=.env.local src/lib/server/scraper/run.ts",
+    "extract:times": "tsx --env-file=.env.local src/lib/server/scraper/extract-times.ts",
     "import:ciqual": "tsx --env-file=.env.local src/lib/server/ciqual/import.ts",
     "rematch": "tsx --env-file=.env.local src/lib/server/ciqual/rematch.ts",
     "compute:nutrition": "tsx --env-file=.env.local src/lib/server/ciqual/compute.ts",
