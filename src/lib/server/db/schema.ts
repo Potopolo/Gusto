@@ -186,6 +186,42 @@ export const recipeTags = sqliteTable('recipe_tags', {
   tag: text('tag').notNull()
 });
 
+// ---- Menus (per household) ----
+
+export type MenuGenerationParams = {
+  peopleCount: number;
+  mealsPerDay: string[];
+  days: number;
+};
+
+export const menus = sqliteTable('menus', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  householdId: integer('household_id')
+    .notNull()
+    .references(() => households.id),
+  name: text('name').notNull(),
+  startDate: integer('start_date', { mode: 'timestamp' }).notNull(),
+  endDate: integer('end_date', { mode: 'timestamp' }).notNull(),
+  notes: text('notes'),
+  generationParams: text('generation_params', { mode: 'json' }).$type<MenuGenerationParams>(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .default(sql`(unixepoch())`)
+    .notNull()
+});
+
+export const menuSlots = sqliteTable('menu_slots', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  menuId: integer('menu_id')
+    .notNull()
+    .references(() => menus.id, { onDelete: 'cascade' }),
+  date: integer('date', { mode: 'timestamp' }).notNull(),
+  mealType: text('meal_type').notNull(), // 'petit-déj' | 'déjeuner' | 'dîner' | 'collation'
+  recipeId: integer('recipe_id').references(() => recipes.id),
+  servings: integer('servings').notNull().default(2),
+  freeText: text('free_text'),
+  position: integer('position').notNull().default(0)
+});
+
 // ---- Inferred types ----
 
 export type Household = typeof households.$inferSelect;
@@ -196,3 +232,5 @@ export type Recipe = typeof recipes.$inferSelect;
 export type Ingredient = typeof ingredients.$inferSelect;
 export type RecipeIngredient = typeof recipeIngredients.$inferSelect;
 export type Category = typeof categories.$inferSelect;
+export type Menu = typeof menus.$inferSelect;
+export type MenuSlot = typeof menuSlots.$inferSelect;

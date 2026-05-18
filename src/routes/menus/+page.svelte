@@ -1,27 +1,48 @@
+<script lang="ts">
+  import { format } from 'date-fns';
+  import { fr } from 'date-fns/locale';
+  import type { PageData } from './$types';
+
+  let { data }: { data: PageData } = $props();
+</script>
+
 <section class="space-y-6">
-  <header class="space-y-2">
-    <h1 class="text-2xl font-semibold text-gusto-cream">Menus</h1>
-    <p class="text-gusto-cream/80">
-      Génération de menus à venir (phase 2-C). Pour l'instant, parcours tes recettes et reviens
-      ici quand on aura branché la génération.
-    </p>
+  <header class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold text-gusto-cream">Menus</h1>
+      <p class="text-sm text-gusto-cream/70">
+        {data.menus.length} menu{data.menus.length > 1 ? 's' : ''} en bibliothèque.
+      </p>
+    </div>
+    <a
+      href="/menus/nouveau"
+      class="rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+    >
+      Nouveau menu
+    </a>
   </header>
 
-  <div class="rounded-lg bg-gusto-cream p-6">
-    <h2 class="text-base font-medium text-gusto-green-900">Ce que cette page fera bientôt</h2>
-    <ul class="mt-3 space-y-1.5 text-sm text-gusto-green-700">
-      <li>
-        • Génération de menus sur 7 jours selon ta saison + ton équipement + ton objectif points
-      </li>
-      <li>• Choix manuel d'un plat par créneau, ou tirage aléatoire dans tes recettes</li>
-      <li>• Génération auto de la liste de courses à partir du menu</li>
-      <li>• Mode shopping mobile avec les EAN affichés en grand</li>
+  {#if data.menus.length === 0}
+    <div class="rounded-lg border border-dashed border-gusto-cream/30 bg-gusto-cream/5 p-6 text-sm text-gusto-cream/80">
+      Aucun menu pour l'instant. Clique « Nouveau menu » pour générer une semaine
+      adaptée à ton objectif points + la saison du moment.
+    </div>
+  {:else}
+    <ul class="space-y-3">
+      {#each data.menus as menu (menu.id)}
+        <li>
+          <a
+            href={`/menus/${menu.id}`}
+            class="block rounded-lg bg-gusto-cream p-4 transition hover:ring-2 hover:ring-gusto-pink"
+          >
+            <h2 class="font-medium text-gusto-green-900">{menu.name}</h2>
+            <p class="mt-1 text-xs text-gusto-green-700/70">
+              Du {format(menu.startDate, 'EEEE d MMMM', { locale: fr })}
+              au {format(menu.endDate, 'EEEE d MMMM yyyy', { locale: fr })}
+            </p>
+          </a>
+        </li>
+      {/each}
     </ul>
-    <a
-      href="/recettes"
-      class="mt-4 inline-flex items-center rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
-    >
-      Parcourir les recettes en attendant
-    </a>
-  </div>
+  {/if}
 </section>
