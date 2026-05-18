@@ -13,6 +13,16 @@ const ALLOWED_MEAL_TYPES = [
   'dessert',
   'collation'
 ] as const;
+type MealType = (typeof ALLOWED_MEAL_TYPES)[number];
+
+function isValidMealType(s: string): s is MealType {
+  return (ALLOWED_MEAL_TYPES as readonly string[]).includes(s);
+}
+
+async function recipeExists(id: number): Promise<boolean> {
+  const found = await db.select({ id: recipes.id }).from(recipes).where(eq(recipes.id, id)).limit(1);
+  return !!found[0];
+}
 
 export const load: PageServerLoad = async ({ params }) => {
   const menuId = parseInt(params.id, 10);
@@ -40,7 +50,6 @@ export const load: PageServerLoad = async ({ params }) => {
     .where(eq(menuSlots.menuId, menuId))
     .orderBy(asc(menuSlots.date), asc(menuSlots.position));
 
-  // Recipe picker dataset — lite payload
   const allRecipes = await db
     .select({
       id: recipes.id,
@@ -69,26 +78,12 @@ export const actions: Actions = {
 
     const date = new Date(dateStr + 'T00:00:00');
     if (!Number.isFinite(date.getTime())) return fail(400, { error: 'Date invalide.' });
-    if (!ALLOWED_MEAL_TYPES.includes(mealType as (typeof ALLOWED_MEAL_TYPES)[number])) {
-      return fail(400, { error: 'Type de plat invalide.' });
-    }
+    if (!isValidMealType(mealType)) return fail(400, { error: 'Type de plat invalide.' });
 
-    let recipeId: number | null = null;
-    if (recipeIdStr) {
-      const parsed = parseInt(recipeIdStr, 10);
-      if (Number.isFinite(parsed)) {
-        const found = await db
-          .select({ id: recipes.id })
-          .from(recipes)
-          .where(eq(recipes.id, parsed))
-          .limit(1);
-        if (!found[0]) return fail(400, { error: 'Recette introuvable.' });
-        recipeId = parsed;
-      }
-    }
-    if (recipeId === null) return fail(400, { error: 'Choisis une recette.' });
+    const recipeId = recipeIdStr ? parseInt(recipeIdStr, 10) : NaN;
+    if (!Number.isFinite(recipeId)) return fail(400, { error: 'Choisis une recette.' });
+    if (!(await recipeExists(recipeId))) return fail(400, { error: 'Recette introuvable.' });
 
-    // Next position = max + 1 within the menu
     const [last] = await db
       .select({ position: menuSlots.position })
       .from(menuSlots)
@@ -106,6 +101,34 @@ export const actions: Actions = {
     });
 
     return { added: true };
+  },
+
+  update: async ({ request, params }) => {
+    const menuId = parseInt(params.id, 10);
+    if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
+
+    const data = await request.formData();
+    const slotId = parseInt((data.get('slotId') ?? '').toString(), 10);
+    const mealType = (data.get('mealType') ?? '').toString();
+    const recipeIdStr = (data.get('recipeId') ?? '').toString();
+    const servings = Math.max(
+      1,
+      Math.min(50, parseInt((data.get('servings') ?? '2').toString(), 10) || 2)
+    );
+
+    if (!Number.isFinite(slotId)) return fail(400, { error: 'Slot invalide.' });
+    if (!isValidMealType(mealType)) return fail(400, { error: 'Type de plat invalide.' });
+
+    const recipeId = recipeIdStr ? parseInt(recipeIdStr, 10) : NaN;
+    if (!Number.isFinite(recipeId)) return fail(400, { error: 'Choisis une recette.' });
+    if (!(await recipeExists(recipeId))) return fail(400, { error: 'Recette introuvable.' });
+
+    await db
+      .update(menuSlots)
+      .set({ mealType, recipeId, servings })
+      .where(and(eq(menuSlots.id, slotId), eq(menuSlots.menuId, menuId)));
+
+    return { updated: true };
   },
 
   remove: async ({ request, params }) => {
