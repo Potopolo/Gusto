@@ -11,10 +11,7 @@
 import { and, eq, inArray, isNotNull, lte } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { recipes, recipeCategories, categories, profiles, recipeTags } from '$lib/server/db/schema';
-
-/** Words that almost always signal a sweet/dessert recipe — used to filter main meals. */
-const SWEET_RE =
-  /\b(g[âa]teau|tarte|tartelette|entremet|mousse|cookie|muffin|moelleux|crumble|fondant|cheesecake|pancake|brioche|pain perdu|glace|sorbet|bavarois|cake|biscuit|cupcake|[ée]clair|profiterole|tiramisu|b[ûu]che|p[âa]tisserie|donut|fraisier|millefeuille|saint[- ]honor[ée]|cr[èe]me br[ûu]l[ée]e|cl[âa]foutis|chausson|mendiant|macaron|nougat|sucette|pralin[ée]|caramel|m[ée]ringue|sabl[ée]|paris[- ]brest|opera|charlotte|panna cotta|cr[èe]me dessert|kouign|baba|babka|cannel[ée]|madeleine|financier|verrine.*(fruit|fraise|framboise|chocolat|p[êe]che|abricot|fromage blanc))s?\b/i;
+import { SWEET_RE } from '$lib/menus/sweet';
 
 const SEASON_BY_MONTH: Record<number, string> = {
   3: 'printemps', 4: 'printemps', 5: 'printemps',

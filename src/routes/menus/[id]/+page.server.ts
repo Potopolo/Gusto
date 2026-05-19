@@ -1,7 +1,15 @@
 import { error, fail, type Actions } from '@sveltejs/kit';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { menus, menuSlots, recipes, recipeCategories, categories } from '$lib/server/db/schema';
+import {
+  menus,
+  menuSlots,
+  recipes,
+  recipeCategories,
+  recipeTags,
+  categories
+} from '$lib/server/db/schema';
+import { SWEET_RE, isRecipeForMealType } from '$lib/menus/sweet';
 import type { PageServerLoad } from './$types';
 
 const ALLOWED_MEAL_TYPES = [
@@ -79,10 +87,26 @@ export const load: PageServerLoad = async ({ params }) => {
     catsByRecipe.set(c.recipeId, list);
   }
 
-  const allRecipes = recipeRows.map((r) => ({
-    ...r,
-    categories: catsByRecipe.get(r.id) ?? []
-  }));
+  // Raw tags per recipe — used to compute the isSweet flag (some sweet
+  // recipes aren't categorized, e.g. when their Amandine tag has no
+  // mapping in persist.ts/reapply-tags.ts yet).
+  const tagRows = await db.select().from(recipeTags);
+  const tagsByRecipe = new Map<number, string[]>();
+  for (const t of tagRows) {
+    const list = tagsByRecipe.get(t.recipeId) ?? [];
+    list.push(t.tag);
+    tagsByRecipe.set(t.recipeId, list);
+  }
+
+  const allRecipes = recipeRows.map((r) => {
+    const cats = catsByRecipe.get(r.id) ?? [];
+    const tags = tagsByRecipe.get(r.id) ?? [];
+    const isSweet =
+      SWEET_RE.test(r.nameFr) ||
+      tags.some((t) => SWEET_RE.test(t)) ||
+      cats.some((c) => c.slug === 'dessert' || c.slug === 'gourmand');
+    return { ...r, categories: cats, isSweet };
+  });
 
   // Distinct categories present in the corpus, grouped + sorted for filter pills
   const usedCategoryRows = await db
@@ -186,5 +210,75 @@ export const actions: Actions = {
       .delete(menuSlots)
       .where(and(eq(menuSlots.id, slotId), eq(menuSlots.menuId, menuId)));
     return { removed: true };
+  },
+
+  /**
+   * Pick a random alternative recipe for an existing slot, respecting the
+   * slot's meal type (no desserts in déjeuner/dîner, etc.). Excludes the
+   * current recipe so the user always sees something new.
+   */
+  reroll: async ({ request, params }) => {
+    const menuId = parseInt(params.id, 10);
+    if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
+    const data = await request.formData();
+    const slotId = parseInt((data.get('slotId') ?? '').toString(), 10);
+    if (!Number.isFinite(slotId)) return fail(400, { error: 'Slot invalide.' });
+
+    const [slot] = await db
+      .select()
+      .from(menuSlots)
+      .where(and(eq(menuSlots.id, slotId), eq(menuSlots.menuId, menuId)))
+      .limit(1);
+    if (!slot) return fail(404, { error: 'Slot introuvable.' });
+
+    // Build the eligible pool — same logic as the picker UI
+    const allRecipes = await db
+      .select({ id: recipes.id, nameFr: recipes.nameFr })
+      .from(recipes);
+
+    const catRows = await db
+      .select({ recipeId: recipeCategories.recipeId, slug: categories.slug })
+      .from(recipeCategories)
+      .innerJoin(categories, eq(recipeCategories.categoryId, categories.id));
+    const slugsByR = new Map<number, Set<string>>();
+    for (const c of catRows) {
+      const set = slugsByR.get(c.recipeId) ?? new Set<string>();
+      set.add(c.slug);
+      slugsByR.set(c.recipeId, set);
+    }
+
+    const tagRows = await db.select().from(recipeTags);
+    const tagsByR = new Map<number, string[]>();
+    for (const t of tagRows) {
+      const list = tagsByR.get(t.recipeId) ?? [];
+      list.push(t.tag);
+      tagsByR.set(t.recipeId, list);
+    }
+
+    const candidates = allRecipes.filter((r) => {
+      if (r.id === slot.recipeId) return false; // always pick something new
+      const slugs = slugsByR.get(r.id) ?? new Set<string>();
+      const tags = tagsByR.get(r.id) ?? [];
+      const isSweet =
+        SWEET_RE.test(r.nameFr) ||
+        tags.some((t) => SWEET_RE.test(t)) ||
+        slugs.has('dessert') ||
+        slugs.has('gourmand');
+      return isRecipeForMealType(
+        { categories: Array.from(slugs).map((slug) => ({ slug })), isSweet },
+        slot.mealType
+      );
+    });
+
+    if (!candidates.length) {
+      return fail(400, {
+        error: `Aucune autre recette adaptée à un ${slot.mealType}.`
+      });
+    }
+
+    const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
+    await db.update(menuSlots).set({ recipeId: picked.id }).where(eq(menuSlots.id, slotId));
+
+    return { rerolled: true };
   }
 };
