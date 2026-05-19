@@ -93,7 +93,7 @@
     });
   });
 
-  function startAdd() {
+  function startAdd(opts: { scrollToForm?: boolean } = {}) {
     adding = true;
     addDate = menuDates[0]?.key ?? '';
     addMealType = 'dîner';
@@ -104,6 +104,14 @@
     const month = addDate ? new Date(addDate + 'T00:00:00').getMonth() + 1 : new Date().getMonth() + 1;
     const seasonSlug = SEASON_BY_MONTH[month];
     addSelectedCats = seasonSlug ? [seasonSlug] : [];
+    if (opts.scrollToForm) {
+      // Defer to next tick so the form is in the DOM before scrolling
+      setTimeout(() => {
+        document
+          .getElementById('add-plat-form')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+    }
   }
 
   function toggleAddCat(slug: string) {
@@ -215,13 +223,17 @@
 
   {#if adding}
     <form
+      id="add-plat-form"
       method="post"
       action="?/add"
       use:enhance={() => {
         return async ({ update }) => {
-          await update();
-          adding = false;
+          // Keep form open so the user can add multiple dishes in a row.
+          // Only clear the recipe pick — meal type / day / pills / portions
+          // stay so quick repeats are smooth.
+          await update({ reset: false });
           addRecipeId = '';
+          addSearchQ = '';
         };
       }}
       class="space-y-4 rounded-lg bg-gusto-cream p-4 text-gusto-green-900"
@@ -696,6 +708,16 @@
       </section>
     {/each}
   </div>
+
+  {#if !adding}
+    <button
+      type="button"
+      onclick={() => startAdd({ scrollToForm: true })}
+      class="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-gusto-cream/30 bg-transparent px-4 py-3 text-sm text-gusto-cream/80 hover:border-gusto-cream/60 hover:text-gusto-cream"
+    >
+      <span aria-hidden="true">+</span> Ajouter un plat
+    </button>
+  {/if}
 
   <footer class="rounded-lg border border-dashed border-gusto-cream/30 p-4 text-sm text-gusto-cream/70">
     <span class="font-medium text-gusto-cream/90">Bientôt :</span>
