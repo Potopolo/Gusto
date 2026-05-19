@@ -55,6 +55,12 @@
     return daySlots.reduce((sum, r) => sum + (r.recipe?.pointsPerServing ?? 0), 0);
   }
 
+  /** Main meals shown in the day card; everything else is grouped under "Plats en plus". */
+  const MAIN_MEAL_TYPES = new Set(['petit-déj', 'déjeuner', 'dîner']);
+  function isMainMeal(mealType: string): boolean {
+    return MAIN_MEAL_TYPES.has(mealType);
+  }
+
   // --- Filter pills (shared add + edit) ---
   // Drop équipement / occasion / type — type is already chosen via meal-type radio chips.
   const KIND_ORDER = ['saison', 'style', 'régime', 'temps'];
@@ -419,9 +425,11 @@
   <div class="space-y-4">
     {#each slotsByDate as [dateKey, daySlots] (dateKey)}
       {@const dayTotal = dayTotalPoints(daySlots)}
-      <section class="rounded-lg bg-gusto-cream p-4">
+      {@const mainSlots = daySlots.filter((r) => isMainMeal(r.slot.mealType))}
+      {@const extraSlots = daySlots.filter((r) => !isMainMeal(r.slot.mealType))}
+      <section class="rounded-lg bg-gusto-cream p-3 sm:p-4">
         <header class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="text-lg font-semibold text-gusto-green-900">
+          <h2 class="text-base font-semibold text-gusto-green-900 sm:text-lg">
             {format(new Date(dateKey), 'EEEE d MMMM', { locale: fr })}
           </h2>
           {#if dayTotal > 0}
@@ -429,12 +437,10 @@
           {/if}
         </header>
 
-        {#if daySlots.length}
-          <ul class="space-y-2">
-            {#each daySlots as row (row.slot.id)}
-              {@const { slot, recipe } = row}
-              <li>
-                {#if editingSlotId === slot.id}
+        {#snippet slotItem(row: SlotRow)}
+          {@const { slot, recipe } = row}
+          <li>
+            {#if editingSlotId === slot.id}
                   <form
                     method="post"
                     action="?/update"
@@ -617,31 +623,31 @@
                     </div>
                   </form>
                 {:else}
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1 sm:gap-2">
                     {#if recipe}
                       {@const c = pointsColor(recipe.pointsPerServing ?? 0)}
                       <a
                         href={`/recettes/${recipe.slug}`}
-                        class="flex flex-1 items-center gap-3 rounded-md p-2 transition hover:bg-gusto-green-50"
+                        class="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1.5 transition hover:bg-gusto-green-50 sm:gap-3 sm:p-2"
                       >
-                        <span class="w-20 flex-none text-xs uppercase tracking-wide text-gusto-green-700/70">
+                        <span class="w-14 flex-none text-[10px] uppercase tracking-wide text-gusto-green-700/70 sm:w-20 sm:text-xs">
                           {slot.mealType}
                         </span>
                         {#if recipe.photoUrl}
                           <img
                             src={recipe.photoUrl}
                             alt={recipe.nameFr}
-                            class="h-12 w-12 flex-none rounded object-cover"
+                            class="h-10 w-10 flex-none rounded object-cover sm:h-12 sm:w-12"
                             loading="lazy"
                           />
                         {:else}
-                          <div class="h-12 w-12 flex-none rounded bg-gusto-green-50"></div>
+                          <div class="h-10 w-10 flex-none rounded bg-gusto-green-50 sm:h-12 sm:w-12"></div>
                         {/if}
                         <div class="min-w-0 flex-1">
                           <p class="truncate text-sm font-medium text-gusto-green-900">
                             {recipe.nameFr}
                           </p>
-                          <p class="text-xs text-gusto-green-700/70">
+                          <p class="truncate text-xs text-gusto-green-700/70">
                             ⏱ {formatMinutes(recipe.prepMinutes)}
                             · {slot.servings} portion{slot.servings > 1 ? 's' : ''}
                             {#if recipe.pointsPerServing != null}
@@ -651,7 +657,7 @@
                         </div>
                         {#if recipe.pointsPerServing != null}
                           <span
-                            class="flex h-9 w-9 flex-none items-center justify-center rounded-full {c.bg} {c.text} text-sm font-semibold"
+                            class="flex h-8 w-8 flex-none items-center justify-center rounded-full {c.bg} {c.text} text-sm font-semibold sm:h-9 sm:w-9"
                           >
                             {recipe.pointsPerServing}
                           </span>
@@ -659,10 +665,10 @@
                       </a>
                     {:else}
                       <span
-                        class="flex flex-1 items-center gap-3 rounded-md p-2 text-sm italic text-gusto-green-700/70"
+                        class="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1.5 text-sm italic text-gusto-green-700/70 sm:gap-3 sm:p-2"
                       >
-                        <span class="w-20 flex-none text-xs uppercase tracking-wide">{slot.mealType}</span>
-                        {slot.freeText ?? '(vide)'}
+                        <span class="w-14 flex-none text-[10px] uppercase tracking-wide sm:w-20 sm:text-xs">{slot.mealType}</span>
+                        <span class="truncate">{slot.freeText ?? '(vide)'}</span>
                       </span>
                     {/if}
 
@@ -700,10 +706,31 @@
                   </div>
                 {/if}
               </li>
+        {/snippet}
+
+        {#if mainSlots.length === 0 && extraSlots.length === 0}
+          <p class="text-xs italic text-gusto-green-700/70">Pas de plat prévu ce jour.</p>
+        {/if}
+
+        {#if mainSlots.length}
+          <ul class="space-y-2">
+            {#each mainSlots as row (row.slot.id)}
+              {@render slotItem(row)}
             {/each}
           </ul>
-        {:else}
-          <p class="text-xs italic text-gusto-green-700/70">Pas de plat prévu ce jour.</p>
+        {/if}
+
+        {#if extraSlots.length}
+          <div class="mt-3 border-t border-gusto-green-100 pt-3">
+            <p class="mb-2 text-[10px] uppercase tracking-wide text-gusto-green-700/70">
+              Plats en plus
+            </p>
+            <ul class="space-y-2">
+              {#each extraSlots as row (row.slot.id)}
+                {@render slotItem(row)}
+              {/each}
+            </ul>
+          </div>
         {/if}
       </section>
     {/each}
