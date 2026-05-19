@@ -60,6 +60,8 @@
   let addMealType = $state('dîner');
   let addRecipeId = $state('');
   let addServings = $state(2);
+  let addSearchQ = $state('');
+  let addSelectedCats = $state<string[]>([]);
 
   function startAdd() {
     adding = true;
@@ -67,7 +69,30 @@
     addMealType = 'dîner';
     addRecipeId = '';
     addServings = data.menu.generationParams?.peopleCount ?? 2;
+    addSearchQ = '';
+    addSelectedCats = [];
   }
+
+  function toggleAddCat(slug: string) {
+    if (addSelectedCats.includes(slug)) {
+      addSelectedCats = addSelectedCats.filter((s) => s !== slug);
+    } else {
+      addSelectedCats = [...addSelectedCats, slug];
+    }
+  }
+
+  // Filtered recipe list for the picker
+  let addFilteredRecipes = $derived.by(() => {
+    const q = addSearchQ.trim().toLowerCase();
+    return data.allRecipes.filter((r) => {
+      if (q && !r.nameFr.toLowerCase().includes(q)) return false;
+      if (addSelectedCats.length > 0) {
+        const rSlugs = new Set(r.categories.map((c) => c.slug));
+        if (!addSelectedCats.every((s) => rSlugs.has(s))) return false;
+      }
+      return true;
+    });
+  });
 
   // --- Edit form (inline per slot) ---
   let editingSlotId = $state<number | null>(null);
@@ -123,55 +148,136 @@
           addRecipeId = '';
         };
       }}
-      class="space-y-3 rounded-lg bg-gusto-cream p-4 text-gusto-green-900"
+      class="space-y-4 rounded-lg bg-gusto-cream p-4 text-gusto-green-900"
     >
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label class="block text-xs font-medium text-gusto-green-700">
-          Jour
-          <select
-            name="date"
-            bind:value={addDate}
-            required
-            class="mt-1 block w-full rounded-md text-sm shadow-sm"
-          >
-            {#each menuDates as d (d.key)}
-              <option value={d.key}>{d.label}</option>
-            {/each}
-          </select>
-        </label>
-
-        <label class="block text-xs font-medium text-gusto-green-700">
-          Type
-          <select
-            name="mealType"
-            bind:value={addMealType}
-            required
-            class="mt-1 block w-full rounded-md text-sm shadow-sm"
-          >
-            {#each MEAL_TYPES as t (t.value)}
-              <option value={t.value}>{t.label}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-
+      <!-- Jour -->
       <label class="block text-xs font-medium text-gusto-green-700">
-        Recette
+        Jour
         <select
-          name="recipeId"
-          bind:value={addRecipeId}
+          name="date"
+          bind:value={addDate}
           required
           class="mt-1 block w-full rounded-md text-sm shadow-sm"
         >
-          <option value="">— Choisir —</option>
-          {#each data.allRecipes as r (r.id)}
-            <option value={String(r.id)}>
-              {r.nameFr}{r.pointsPerServing != null ? ` · ${r.pointsPerServing} pts` : ''}
-            </option>
+          {#each menuDates as d (d.key)}
+            <option value={d.key}>{d.label}</option>
           {/each}
         </select>
       </label>
 
+      <!-- Type de plat — radio chips -->
+      <fieldset>
+        <legend class="mb-1.5 block text-xs font-medium text-gusto-green-700">Type de plat</legend>
+        <div class="flex flex-wrap gap-1.5">
+          {#each MEAL_TYPES as t (t.value)}
+            <label class="cursor-pointer">
+              <input
+                type="radio"
+                name="mealType"
+                value={t.value}
+                checked={addMealType === t.value}
+                onchange={(e) => {
+                  if ((e.currentTarget as HTMLInputElement).checked) addMealType = t.value;
+                }}
+                required
+                class="peer sr-only"
+              />
+              <span
+                class="block rounded-full border border-gusto-green-200 bg-white px-3 py-1 text-xs font-medium text-gusto-green-700 transition peer-checked:border-gusto-pink peer-checked:bg-gusto-pink peer-checked:text-gusto-green-900 hover:bg-gusto-green-50"
+              >
+                {t.label}
+              </span>
+            </label>
+          {/each}
+        </div>
+      </fieldset>
+
+      <!-- Recette — search + tag filter + grid preview -->
+      <div class="space-y-2">
+        <span class="block text-xs font-medium text-gusto-green-700">Recette</span>
+
+        <input
+          type="search"
+          bind:value={addSearchQ}
+          placeholder="Rechercher par nom…"
+          class="block w-full rounded-md text-sm shadow-sm"
+        />
+
+        {#if data.allCategories.length}
+          <div class="flex flex-wrap gap-1">
+            {#each data.allCategories as c (c.slug)}
+              {@const active = addSelectedCats.includes(c.slug)}
+              <button
+                type="button"
+                onclick={() => toggleAddCat(c.slug)}
+                aria-pressed={active}
+                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition {active
+                  ? 'bg-gusto-pink text-gusto-green-900'
+                  : 'bg-gusto-green-50 text-gusto-green-700 hover:bg-gusto-green-100'}"
+              >
+                {c.nameFr}<span class="ml-1 opacity-60">{c.count}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+
+        <input type="hidden" name="recipeId" value={addRecipeId} required />
+
+        <div class="max-h-80 overflow-auto rounded-md border border-gusto-green-100 bg-white p-2">
+          {#if addFilteredRecipes.length === 0}
+            <p class="p-4 text-center text-xs text-gusto-green-700/70">
+              Aucune recette ne correspond.
+            </p>
+          {:else}
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {#each addFilteredRecipes as r (r.id)}
+                {@const selected = addRecipeId === String(r.id)}
+                {@const c = r.pointsPerServing != null ? pointsColor(r.pointsPerServing) : null}
+                <button
+                  type="button"
+                  onclick={() => (addRecipeId = String(r.id))}
+                  aria-pressed={selected}
+                  class="overflow-hidden rounded-md text-left transition {selected
+                    ? 'ring-2 ring-gusto-pink'
+                    : 'ring-1 ring-gusto-green-100 hover:ring-gusto-green'}"
+                >
+                  <div class="relative">
+                    {#if r.photoUrl}
+                      <img
+                        src={r.photoUrl}
+                        alt={r.nameFr}
+                        loading="lazy"
+                        class="aspect-[4/3] w-full object-cover"
+                      />
+                    {:else}
+                      <div class="aspect-[4/3] bg-gusto-green-50"></div>
+                    {/if}
+                    {#if c && r.pointsPerServing != null}
+                      <span
+                        class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full {c.bg} {c.text} text-xs font-semibold shadow-sm ring-1 ring-white/70"
+                      >
+                        {r.pointsPerServing}
+                      </span>
+                    {/if}
+                  </div>
+                  <div class="p-1.5">
+                    <p class="line-clamp-2 text-[11px] font-medium leading-tight text-gusto-green-900">
+                      {r.nameFr}
+                    </p>
+                    {#if r.prepMinutes}
+                      <p class="mt-0.5 text-[10px] text-gusto-green-700/70">
+                        ⏱ {formatMinutes(r.prepMinutes)}
+                      </p>
+                    {/if}
+                  </div>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Portions + buttons -->
       <div class="flex items-end gap-3">
         <label class="block text-xs font-medium text-gusto-green-700">
           Portions
@@ -208,7 +314,8 @@
           </button>
           <button
             type="submit"
-            class="rounded-md bg-gusto-pink px-3 py-1.5 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+            disabled={!addRecipeId}
+            class="rounded-md bg-gusto-pink px-3 py-1.5 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200 disabled:opacity-50"
           >
             Ajouter
           </button>

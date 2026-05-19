@@ -1,7 +1,7 @@
 import { error, fail, type Actions } from '@sveltejs/kit';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { menus, menuSlots, recipes } from '$lib/server/db/schema';
+import { menus, menuSlots, recipes, recipeCategories, categories } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 
 const ALLOWED_MEAL_TYPES = [
@@ -50,16 +50,61 @@ export const load: PageServerLoad = async ({ params }) => {
     .where(eq(menuSlots.menuId, menuId))
     .orderBy(asc(menuSlots.date), asc(menuSlots.position));
 
-  const allRecipes = await db
+  const recipeRows = await db
     .select({
       id: recipes.id,
       nameFr: recipes.nameFr,
-      pointsPerServing: recipes.pointsPerServing
+      photoUrl: recipes.photoUrl,
+      pointsPerServing: recipes.pointsPerServing,
+      prepMinutes: recipes.prepMinutes
     })
     .from(recipes)
     .orderBy(asc(recipes.nameFr));
 
-  return { menu, slots: slotRows, allRecipes };
+  // Per-recipe categories for client-side filtering
+  const recipeCatRows = await db
+    .select({
+      recipeId: recipeCategories.recipeId,
+      slug: categories.slug,
+      nameFr: categories.nameFr,
+      kind: categories.kind
+    })
+    .from(recipeCategories)
+    .innerJoin(categories, eq(recipeCategories.categoryId, categories.id));
+
+  const catsByRecipe = new Map<number, Array<{ slug: string; nameFr: string; kind: string }>>();
+  for (const c of recipeCatRows) {
+    const list = catsByRecipe.get(c.recipeId) ?? [];
+    list.push({ slug: c.slug, nameFr: c.nameFr, kind: c.kind });
+    catsByRecipe.set(c.recipeId, list);
+  }
+
+  const allRecipes = recipeRows.map((r) => ({
+    ...r,
+    categories: catsByRecipe.get(r.id) ?? []
+  }));
+
+  // Distinct categories present in the corpus, grouped + sorted for filter pills
+  const usedCategoryRows = await db
+    .select({
+      slug: categories.slug,
+      nameFr: categories.nameFr,
+      kind: categories.kind,
+      count: sql<number>`count(${recipeCategories.recipeId})`
+    })
+    .from(categories)
+    .innerJoin(recipeCategories, eq(recipeCategories.categoryId, categories.id))
+    .groupBy(categories.id, categories.slug, categories.nameFr, categories.kind)
+    .orderBy(sql`count(${recipeCategories.recipeId}) desc`);
+
+  const allCategories = usedCategoryRows.map((r) => ({
+    slug: r.slug,
+    nameFr: r.nameFr,
+    kind: r.kind,
+    count: Number(r.count)
+  }));
+
+  return { menu, slots: slotRows, allRecipes, allCategories };
 };
 
 export const actions: Actions = {
