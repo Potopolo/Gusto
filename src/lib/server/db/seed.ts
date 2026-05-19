@@ -47,7 +47,14 @@ const categoriesSeed = [
   { slug: 'airfryer', nameFr: 'Airfryer', kind: 'équipement' },
   { slug: 'mini-four', nameFr: 'Mini four', kind: 'équipement' },
   { slug: 'plaque', nameFr: 'Plaque', kind: 'équipement' },
-  { slug: 'blender', nameFr: 'Blender', kind: 'équipement' }
+  { slug: 'blender', nameFr: 'Blender', kind: 'équipement' },
+  { slug: 'thermomix', nameFr: 'Thermomix', kind: 'équipement' },
+  // Style — recipe vibe / preset
+  { slug: 'leger', nameFr: 'Léger', kind: 'style' },
+  { slug: 'reconfort', nameFr: 'Réconfort', kind: 'style' },
+  { slug: 'gourmand', nameFr: 'Gourmand', kind: 'style' },
+  // Occasion
+  { slug: 'noel', nameFr: 'Noël', kind: 'occasion' }
 ];
 
 // Equipment seed (owned reflects Paul's current kitchen, May 2026)

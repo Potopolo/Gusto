@@ -55,6 +55,23 @@
   }
 
   // --- Add form (top of page) ---
+  const KIND_ORDER = ['saison', 'style', 'régime', 'temps', 'type', 'équipement', 'occasion'];
+  const KIND_LABELS: Record<string, string> = {
+    saison: 'Saison',
+    style: 'Style',
+    régime: 'Régime',
+    temps: 'Temps',
+    type: 'Type',
+    équipement: 'Équipement',
+    occasion: 'Occasion'
+  };
+  const SEASON_BY_MONTH: Record<number, string> = {
+    3: 'printemps', 4: 'printemps', 5: 'printemps',
+    6: 'ete',       7: 'ete',       8: 'ete',
+    9: 'automne',   10: 'automne',  11: 'automne',
+    12: 'hiver',    1: 'hiver',     2: 'hiver'
+  };
+
   let adding = $state(false);
   let addDate = $state('');
   let addMealType = $state('dîner');
@@ -63,6 +80,20 @@
   let addSearchQ = $state('');
   let addSelectedCats = $state<string[]>([]);
 
+  /** Group filter categories by kind, ordered. */
+  let groupedFilterCats = $derived.by(() => {
+    const byKind = new Map<string, typeof data.allCategories>();
+    for (const c of data.allCategories) {
+      if (!byKind.has(c.kind)) byKind.set(c.kind, []);
+      byKind.get(c.kind)!.push(c);
+    }
+    return KIND_ORDER.flatMap((kind) => {
+      const pills = byKind.get(kind);
+      if (!pills?.length) return [];
+      return [{ kind, label: KIND_LABELS[kind] ?? kind, pills }];
+    });
+  });
+
   function startAdd() {
     adding = true;
     addDate = menuDates[0]?.key ?? '';
@@ -70,7 +101,10 @@
     addRecipeId = '';
     addServings = data.menu.generationParams?.peopleCount ?? 2;
     addSearchQ = '';
-    addSelectedCats = [];
+    // Pre-select current season based on the chosen day
+    const month = addDate ? new Date(addDate + 'T00:00:00').getMonth() + 1 : new Date().getMonth() + 1;
+    const seasonSlug = SEASON_BY_MONTH[month];
+    addSelectedCats = seasonSlug ? [seasonSlug] : [];
   }
 
   function toggleAddCat(slug: string) {
@@ -203,20 +237,31 @@
           class="block w-full rounded-md text-sm shadow-sm"
         />
 
-        {#if data.allCategories.length}
-          <div class="flex flex-wrap gap-1">
-            {#each data.allCategories as c (c.slug)}
-              {@const active = addSelectedCats.includes(c.slug)}
-              <button
-                type="button"
-                onclick={() => toggleAddCat(c.slug)}
-                aria-pressed={active}
-                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition {active
-                  ? 'bg-gusto-pink text-gusto-green-900'
-                  : 'bg-gusto-green-50 text-gusto-green-700 hover:bg-gusto-green-100'}"
-              >
-                {c.nameFr}<span class="ml-1 opacity-60">{c.count}</span>
-              </button>
+        {#if groupedFilterCats.length}
+          <div class="space-y-1.5">
+            {#each groupedFilterCats as group (group.kind)}
+              <div class="flex flex-wrap items-baseline gap-1.5">
+                <span
+                  class="w-16 flex-none text-[9px] uppercase tracking-wide text-gusto-green-700/70"
+                >
+                  {group.label}
+                </span>
+                <div class="flex flex-wrap gap-1">
+                  {#each group.pills as c (c.slug)}
+                    {@const active = addSelectedCats.includes(c.slug)}
+                    <button
+                      type="button"
+                      onclick={() => toggleAddCat(c.slug)}
+                      aria-pressed={active}
+                      class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition {active
+                        ? 'bg-gusto-pink text-gusto-green-900'
+                        : 'bg-gusto-green-50 text-gusto-green-700 hover:bg-gusto-green-100'}"
+                    >
+                      {c.nameFr}<span class="ml-1 opacity-60">{c.count}</span>
+                    </button>
+                  {/each}
+                </div>
+              </div>
             {/each}
           </div>
         {/if}
