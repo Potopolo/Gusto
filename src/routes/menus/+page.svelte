@@ -45,21 +45,20 @@
           <form
             method="post"
             action="?/delete"
-            use:enhance
+            use:enhance={({ cancel }) => {
+              if (
+                !confirm(
+                  `Supprimer définitivement le menu « ${menu.name} » ? Les recettes du menu seront perdues.`
+                )
+              ) {
+                cancel();
+              }
+            }}
             class="absolute right-2 top-2"
           >
             <input type="hidden" name="menuId" value={menu.id} />
             <button
               type="submit"
-              onclick={(e) => {
-                if (
-                  !confirm(
-                    `Supprimer définitivement le menu « ${menu.name} » ? Les recettes du menu seront perdues.`
-                  )
-                ) {
-                  e.preventDefault();
-                }
-              }}
               aria-label={`Supprimer ${menu.name}`}
               title="Supprimer le menu"
               class="flex h-8 w-8 items-center justify-center rounded-full text-gusto-green-700/60 hover:bg-gusto-pink hover:text-gusto-green-900"
