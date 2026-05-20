@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import { format } from 'date-fns';
   import { fr } from 'date-fns/locale';
   import type { PageData } from './$types';
@@ -30,10 +31,10 @@
   {:else}
     <ul class="space-y-3">
       {#each data.menus as menu (menu.id)}
-        <li>
+        <li class="relative">
           <a
             href={`/menus/${menu.id}`}
-            class="block rounded-lg bg-gusto-cream p-4 transition hover:ring-2 hover:ring-gusto-pink"
+            class="block rounded-lg bg-gusto-cream p-4 pr-12 transition hover:ring-2 hover:ring-gusto-pink"
           >
             <h2 class="font-medium text-gusto-green-900">{menu.name}</h2>
             <p class="mt-1 text-xs text-gusto-green-700/70">
@@ -41,6 +42,31 @@
               au {format(menu.endDate, 'EEEE d MMMM yyyy', { locale: fr })}
             </p>
           </a>
+          <form
+            method="post"
+            action="?/delete"
+            use:enhance
+            class="absolute right-2 top-2"
+          >
+            <input type="hidden" name="menuId" value={menu.id} />
+            <button
+              type="submit"
+              onclick={(e) => {
+                if (
+                  !confirm(
+                    `Supprimer définitivement le menu « ${menu.name} » ? Les recettes du menu seront perdues.`
+                  )
+                ) {
+                  e.preventDefault();
+                }
+              }}
+              aria-label={`Supprimer ${menu.name}`}
+              title="Supprimer le menu"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-gusto-green-700/60 hover:bg-gusto-pink hover:text-gusto-green-900"
+            >
+              ✕
+            </button>
+          </form>
         </li>
       {/each}
     </ul>
