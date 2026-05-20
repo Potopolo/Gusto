@@ -201,7 +201,7 @@
 </script>
 
 <section class="space-y-6">
-  <nav class="text-center text-sm sm:text-left">
+  <nav class="text-sm">
     <a href="/menus" class="text-gusto-cream/70 hover:text-gusto-cream">← Menus</a>
   </nav>
 

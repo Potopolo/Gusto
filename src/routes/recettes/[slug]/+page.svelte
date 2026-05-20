@@ -43,7 +43,7 @@
 </script>
 
 <article class="space-y-8">
-  <nav class="text-center text-sm sm:text-left">
+  <nav class="text-sm">
     <a href="/recettes" class="text-gusto-cream/70 hover:text-gusto-cream">← Recettes</a>
   </nav>
 
