@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { enhance, deserialize } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
   import { format } from 'date-fns';
   import { fr } from 'date-fns/locale';
   import { formatMinutes } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
   import { isRecipeForMealType } from '$lib/menus/sweet';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -78,6 +80,26 @@
   };
 
   let adding = $state(false);
+
+  // Custom-modal flow for the destructive "Re-générer" action
+  let regenerateAsking = $state(false);
+  let regenerating = $state(false);
+
+  async function doRegenerate() {
+    regenerating = true;
+    try {
+      const res = await fetch('?/regenerate', { method: 'POST', body: new FormData() });
+      const result = deserialize(await res.text());
+      if (result.type === 'success' || result.type === 'redirect') {
+        regenerateAsking = false;
+        await invalidateAll();
+      } else {
+        console.error('Regenerate failed', result);
+      }
+    } finally {
+      regenerating = false;
+    }
+  }
   let addDate = $state('');
   let addMealType = $state('dîner');
   let addRecipeId = $state('');
@@ -218,28 +240,14 @@
     </div>
     {#if !adding}
       <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-        <form
-          method="post"
-          action="?/regenerate"
-          use:enhance={() =>
-            async ({ update }) => {
-              await update();
-            }}
+        <button
+          type="button"
+          onclick={() => (regenerateAsking = true)}
+          class="inline-flex items-center gap-1.5 rounded-md border border-gusto-cream/40 bg-transparent px-3 py-2 text-sm font-medium text-gusto-cream hover:bg-gusto-cream/10"
+          title="Re-tirer aléatoirement les repas principaux du menu"
         >
-          <button
-            type="submit"
-            onclick={(e) => {
-              const ok = confirm(
-                'Re-générer les repas principaux ? Les recettes actuelles seront remplacées (les plats ajoutés à la main sont conservés).'
-              );
-              if (!ok) e.preventDefault();
-            }}
-            class="inline-flex items-center gap-1.5 rounded-md border border-gusto-cream/40 bg-transparent px-3 py-2 text-sm font-medium text-gusto-cream hover:bg-gusto-cream/10"
-            title="Re-tirer aléatoirement les repas principaux du menu"
-          >
-            <span aria-hidden="true">↻</span> Re-générer
-          </button>
-        </form>
+          <span aria-hidden="true">↻</span> Re-générer
+        </button>
         <button
           type="button"
           onclick={startAdd}
@@ -775,3 +783,14 @@
     génération de la liste de courses depuis le menu (phase 2-C-3).
   </footer>
 </section>
+
+<ConfirmDialog
+  open={regenerateAsking}
+  title="Re-générer les repas principaux ?"
+  message="Les recettes actuelles des repas principaux seront remplacées par un nouveau tirage aléatoire. Les plats ajoutés à la main (desserts, apéros, goûters…) sont conservés."
+  confirmLabel="Re-générer"
+  cancelLabel="Annuler"
+  busy={regenerating}
+  onConfirm={doRegenerate}
+  onCancel={() => (regenerateAsking = false)}
+/>

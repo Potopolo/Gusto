@@ -1,10 +1,37 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { deserialize } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
   import { format } from 'date-fns';
   import { fr } from 'date-fns/locale';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  type MenuRow = (typeof data.menus)[number];
+  let pendingDelete = $state<MenuRow | null>(null);
+  let deleting = $state(false);
+
+  async function doDelete() {
+    if (!pendingDelete) return;
+    deleting = true;
+    try {
+      const fd = new FormData();
+      fd.set('menuId', String(pendingDelete.id));
+      const res = await fetch('?/delete', { method: 'POST', body: fd });
+      const result = deserialize(await res.text());
+      if (result.type === 'success' || result.type === 'redirect') {
+        pendingDelete = null;
+        await invalidateAll();
+      } else if (result.type === 'failure') {
+        // Keep the dialog open and surface the error — for now just log,
+        // a v2 could put it in a toast.
+        console.error('Delete failed', result.data);
+      }
+    } finally {
+      deleting = false;
+    }
+  }
 </script>
 
 <section class="space-y-6">
@@ -42,32 +69,30 @@
               au {format(menu.endDate, 'EEEE d MMMM yyyy', { locale: fr })}
             </p>
           </a>
-          <form
-            method="post"
-            action="?/delete"
-            use:enhance={({ cancel }) => {
-              if (
-                !confirm(
-                  `Supprimer définitivement le menu « ${menu.name} » ? Les recettes du menu seront perdues.`
-                )
-              ) {
-                cancel();
-              }
-            }}
-            class="absolute right-2 top-2"
+          <button
+            type="button"
+            onclick={() => (pendingDelete = menu)}
+            aria-label={`Supprimer ${menu.name}`}
+            title="Supprimer le menu"
+            class="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-gusto-green-700/60 hover:bg-gusto-pink hover:text-gusto-green-900"
           >
-            <input type="hidden" name="menuId" value={menu.id} />
-            <button
-              type="submit"
-              aria-label={`Supprimer ${menu.name}`}
-              title="Supprimer le menu"
-              class="flex h-8 w-8 items-center justify-center rounded-full text-gusto-green-700/60 hover:bg-gusto-pink hover:text-gusto-green-900"
-            >
-              ✕
-            </button>
-          </form>
+            ✕
+          </button>
         </li>
       {/each}
     </ul>
   {/if}
 </section>
+
+<ConfirmDialog
+  open={pendingDelete !== null}
+  title="Supprimer ce menu ?"
+  message={pendingDelete
+    ? `« ${pendingDelete.name} » sera supprimé définitivement, ainsi que tous les plats qui y sont associés.`
+    : ''}
+  confirmLabel="Supprimer"
+  cancelLabel="Annuler"
+  busy={deleting}
+  onConfirm={doDelete}
+  onCancel={() => (pendingDelete = null)}
+/>
