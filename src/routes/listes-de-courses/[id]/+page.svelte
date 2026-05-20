@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import { format } from 'date-fns';
   import { fr } from 'date-fns/locale';
   import {
@@ -85,11 +86,11 @@
           <ul class="space-y-1">
             {#each group.items as it (it.id)}
               {@const isChecked = checked.has(it.id)}
-              <li>
+              <li class="group flex items-center gap-1">
                 <button
                   type="button"
                   onclick={() => toggle(it.id)}
-                  class="flex w-full items-center gap-3 rounded-md p-1.5 text-left transition hover:bg-gusto-green-50"
+                  class="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1.5 text-left transition hover:bg-gusto-green-50"
                 >
                   <span
                     class="flex h-5 w-5 flex-none items-center justify-center rounded border {isChecked
@@ -100,7 +101,7 @@
                     {#if isChecked}✓{/if}
                   </span>
                   <span
-                    class="flex-1 text-sm {isChecked
+                    class="min-w-0 flex-1 text-sm {isChecked
                       ? 'text-gusto-green-700/50 line-through'
                       : 'text-gusto-green-900'}"
                   >
@@ -116,6 +117,17 @@
                     </span>
                   {/if}
                 </button>
+                <form method="post" action="?/removeItem" use:enhance>
+                  <input type="hidden" name="itemId" value={it.id} />
+                  <button
+                    type="submit"
+                    aria-label={`Supprimer ${it.nameFr}`}
+                    title="Supprimer cet article"
+                    class="flex h-7 w-7 flex-none items-center justify-center rounded-full text-gusto-green-700/40 transition hover:bg-gusto-pink hover:text-gusto-green-900 sm:opacity-0 sm:group-hover:opacity-100"
+                  >
+                    ✕
+                  </button>
+                </form>
               </li>
             {/each}
           </ul>
