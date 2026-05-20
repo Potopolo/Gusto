@@ -25,7 +25,7 @@
 </script>
 
 <section class="space-y-6">
-  <header class="flex flex-col items-center gap-3 text-center sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:text-left">
+  <header class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-2xl font-semibold text-gusto-cream">Recettes</h1>
       <p class="text-sm text-gusto-cream/70">

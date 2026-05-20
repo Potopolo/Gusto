@@ -7,7 +7,7 @@
 </script>
 
 <section class="space-y-8">
-  <header class="space-y-3 text-center sm:text-left">
+  <header class="space-y-3">
     <h1 class="text-3xl font-normal text-gusto-pink">
       Bonjour {data.currentUser?.labelFr ?? ''}.
     </h1>
