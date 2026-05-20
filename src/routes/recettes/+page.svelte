@@ -29,15 +29,10 @@
     <div>
       <h1 class="text-2xl font-semibold text-gusto-cream">Recettes</h1>
       <p class="text-sm text-gusto-cream/70">
-        {#if data.matchedTotal > data.recipes.length}
-          {data.recipes.length} affichées sur {data.matchedTotal}
-          {hasFilters ? ' recettes correspondantes' : ' en bibliothèque'}.
-        {:else}
-          {data.recipes.length} recette{data.recipes.length > 1 ? 's' : ''}
-          {hasFilters
-            ? ' affichée' + (data.recipes.length > 1 ? 's' : '')
-            : ' en bibliothèque'}.
-        {/if}
+        {data.recipes.length} recette{data.recipes.length > 1 ? 's' : ''}
+        {hasFilters
+          ? ' affichée' + (data.recipes.length > 1 ? 's' : '')
+          : ' en bibliothèque'}.
       </p>
     </div>
     <a
