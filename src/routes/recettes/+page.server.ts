@@ -87,6 +87,15 @@ export const load: PageServerLoad = async ({ url }) => {
   const whereClause =
     conditions.length === 0 ? undefined : conditions.length === 1 ? conditions[0] : and(...conditions);
 
+  const LIMIT = 200;
+
+  // Real total (after filters) so the UI can show "X affichées sur Y"
+  const [totals] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(recipes)
+    .where(whereClause);
+  const matchedTotal = Number(totals?.n ?? 0);
+
   const rows = await db
     .select({
       id: recipes.id,
@@ -101,7 +110,7 @@ export const load: PageServerLoad = async ({ url }) => {
     .from(recipes)
     .where(whereClause)
     .orderBy(desc(recipes.fetchedAt))
-    .limit(50);
+    .limit(LIMIT);
 
   // 3) Fetch categories per recipe (for chips on cards)
   const ids = rows.map((r) => r.id);
@@ -156,5 +165,12 @@ export const load: PageServerLoad = async ({ url }) => {
     pills: allPills.filter((p) => p.kind === kind)
   })).filter((g) => g.pills.length > 0);
 
-  return { recipes: list, q, selectedCats, groupedPills };
+  return {
+    recipes: list,
+    q,
+    selectedCats,
+    groupedPills,
+    matchedTotal,
+    limit: LIMIT
+  };
 };
