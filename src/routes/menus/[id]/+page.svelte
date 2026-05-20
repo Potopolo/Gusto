@@ -217,13 +217,37 @@
       </p>
     </div>
     {#if !adding}
-      <button
-        type="button"
-        onclick={startAdd}
-        class="rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
-      >
-        + Ajouter un plat
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <form
+          method="post"
+          action="?/regenerate"
+          use:enhance={() =>
+            async ({ update }) => {
+              await update();
+            }}
+        >
+          <button
+            type="submit"
+            onclick={(e) => {
+              const ok = confirm(
+                'Re-générer les repas principaux ? Les recettes actuelles seront remplacées (les plats ajoutés à la main sont conservés).'
+              );
+              if (!ok) e.preventDefault();
+            }}
+            class="inline-flex items-center gap-1.5 rounded-md border border-gusto-cream/40 bg-transparent px-3 py-2 text-sm font-medium text-gusto-cream hover:bg-gusto-cream/10"
+            title="Re-tirer aléatoirement les repas principaux du menu"
+          >
+            <span aria-hidden="true">↻</span> Re-générer
+          </button>
+        </form>
+        <button
+          type="button"
+          onclick={startAdd}
+          class="rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+        >
+          + Ajouter un plat
+        </button>
+      </div>
     {/if}
   </header>
 

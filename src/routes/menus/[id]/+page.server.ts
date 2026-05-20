@@ -1,5 +1,5 @@
 import { error, fail, type Actions } from '@sveltejs/kit';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
   menus,
@@ -9,8 +9,11 @@ import {
   recipeTags,
   categories
 } from '$lib/server/db/schema';
+import { generateMenu } from '$lib/server/menus/generate';
 import { SWEET_RE, isRecipeForMealType } from '$lib/menus/sweet';
 import type { PageServerLoad } from './$types';
+
+const MAIN_MEAL_TYPES = ['petit-déj', 'déjeuner', 'dîner'] as const;
 
 const ALLOWED_MEAL_TYPES = [
   'petit-déj',
@@ -280,5 +283,80 @@ export const actions: Actions = {
     await db.update(menuSlots).set({ recipeId: picked.id }).where(eq(menuSlots.id, slotId));
 
     return { rerolled: true };
+  },
+
+  /**
+   * Wipe and regenerate ALL main-meal slots of the menu (petit-déj/déjeuner/dîner)
+   * using the menu's original generation params. Manually-added extras
+   * (desserts, apéros, goûters…) are preserved.
+   */
+  regenerate: async ({ params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
+    const menuId = parseInt(params.id, 10);
+    if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
+
+    const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1);
+    if (!menu) return fail(404, { error: 'Menu introuvable.' });
+
+    // Fall back to a sensible default for legacy menus saved before
+    // generationParams was added to the schema.
+    const gen = menu.generationParams ?? {
+      peopleCount: 2,
+      mealsPerDay: ['déjeuner', 'dîner'],
+      days: 7
+    };
+
+    const mainMealsPerDay = gen.mealsPerDay.filter((m) =>
+      (MAIN_MEAL_TYPES as readonly string[]).includes(m)
+    );
+    if (mainMealsPerDay.length === 0) {
+      return fail(400, {
+        error: 'Aucun repas principal à régénérer dans ce menu.'
+      });
+    }
+
+    // Drop current main-meal slots, keep "Plats en plus" intact
+    await db
+      .delete(menuSlots)
+      .where(
+        and(
+          eq(menuSlots.menuId, menuId),
+          inArray(menuSlots.mealType, mainMealsPerDay)
+        )
+      );
+
+    // Next position must follow whatever extras remain
+    const [last] = await db
+      .select({ position: menuSlots.position })
+      .from(menuSlots)
+      .where(eq(menuSlots.menuId, menuId))
+      .orderBy(desc(menuSlots.position))
+      .limit(1);
+    let nextPos = (last?.position ?? -1) + 1;
+
+    const newSlots = await generateMenu({
+      startDate: menu.startDate,
+      days: gen.days,
+      mealsPerDay: mainMealsPerDay,
+      peopleCount: gen.peopleCount,
+      userId: locals.currentUser.id,
+      householdId: menu.householdId
+    });
+
+    if (newSlots.length) {
+      await db.insert(menuSlots).values(
+        newSlots.map((s) => ({
+          menuId,
+          date: s.date,
+          mealType: s.mealType,
+          recipeId: s.recipeId,
+          servings: s.servings,
+          position: nextPos++
+        }))
+      );
+    }
+
+    return { regenerated: true };
   }
 };
