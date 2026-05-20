@@ -248,6 +248,25 @@
         >
           <span aria-hidden="true">↻</span> Re-générer
         </button>
+        {#if data.shoppingListId}
+          <a
+            href={`/listes-de-courses/${data.shoppingListId}`}
+            class="inline-flex items-center gap-1.5 rounded-md border border-gusto-cream/40 bg-transparent px-3 py-2 text-sm font-medium text-gusto-cream hover:bg-gusto-cream/10"
+            title="Voir la liste de courses associée"
+          >
+            <span aria-hidden="true">🛒</span> Voir la liste
+          </a>
+        {:else}
+          <form method="post" action="?/generateShoppingList">
+            <button
+              type="submit"
+              class="inline-flex items-center gap-1.5 rounded-md border border-gusto-cream/40 bg-transparent px-3 py-2 text-sm font-medium text-gusto-cream hover:bg-gusto-cream/10"
+              title="Générer la liste de courses à partir des recettes du menu"
+            >
+              <span aria-hidden="true">🛒</span> Liste de courses
+            </button>
+          </form>
+        {/if}
         <button
           type="button"
           onclick={startAdd}
@@ -778,10 +797,6 @@
     </button>
   {/if}
 
-  <footer class="rounded-lg border border-dashed border-gusto-cream/30 p-4 text-sm text-gusto-cream/70">
-    <span class="font-medium text-gusto-cream/90">Bientôt :</span>
-    génération de la liste de courses depuis le menu (phase 2-C-3).
-  </footer>
 </section>
 
 <ConfirmDialog

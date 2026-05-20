@@ -9,6 +9,7 @@
     { href: '/', label: 'Accueil' },
     { href: '/recettes', label: 'Recettes' },
     { href: '/menus', label: 'Menus' },
+    { href: '/listes-de-courses', label: 'Courses' },
     { href: '/profil', label: 'Profil' }
   ];
 

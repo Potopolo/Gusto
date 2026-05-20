@@ -222,6 +222,39 @@ export const menuSlots = sqliteTable('menu_slots', {
   position: integer('position').notNull().default(0)
 });
 
+// ---- Shopping lists generated from a menu ----
+
+export const shoppingLists = sqliteTable('shopping_lists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  menuId: integer('menu_id')
+    .references(() => menus.id, { onDelete: 'set null' }), // a list survives if its menu is deleted
+  householdId: integer('household_id')
+    .notNull()
+    .references(() => households.id),
+  name: text('name').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .default(sql`(unixepoch())`)
+    .notNull()
+});
+
+export const shoppingListItems = sqliteTable('shopping_list_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  listId: integer('list_id')
+    .notNull()
+    .references(() => shoppingLists.id, { onDelete: 'cascade' }),
+  nameFr: text('name_fr').notNull(),
+  qty: real('qty'),
+  unit: text('unit'),
+  note: text('note'),
+  ingredientId: integer('ingredient_id').references(() => ingredients.id),
+  // 'fruits-legumes' | 'viandes-poissons' | 'produits-laitiers' | 'epicerie' |
+  // 'frais' | 'boissons' | 'surgeles' | 'autre'
+  category: text('category').notNull().default('autre'),
+  isChecked: integer('is_checked', { mode: 'boolean' }).notNull().default(false),
+  isManual: integer('is_manual', { mode: 'boolean' }).notNull().default(false),
+  position: integer('position').notNull().default(0)
+});
+
 // ---- Inferred types ----
 
 export type Household = typeof households.$inferSelect;
@@ -234,3 +267,5 @@ export type RecipeIngredient = typeof recipeIngredients.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Menu = typeof menus.$inferSelect;
 export type MenuSlot = typeof menuSlots.$inferSelect;
+export type ShoppingList = typeof shoppingLists.$inferSelect;
+export type ShoppingListItem = typeof shoppingListItems.$inferSelect;

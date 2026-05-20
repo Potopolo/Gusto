@@ -1,4 +1,4 @@
-import { error, fail, type Actions } from '@sveltejs/kit';
+import { error, fail, redirect, type Actions } from '@sveltejs/kit';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
@@ -7,9 +7,12 @@ import {
   recipes,
   recipeCategories,
   recipeTags,
-  categories
+  categories,
+  shoppingLists,
+  shoppingListItems
 } from '$lib/server/db/schema';
 import { generateMenu } from '$lib/server/menus/generate';
+import { generateShoppingItems } from '$lib/server/menus/shopping-list';
 import { SWEET_RE, isRecipeForMealType } from '$lib/menus/sweet';
 import type { PageServerLoad } from './$types';
 
@@ -131,7 +134,21 @@ export const load: PageServerLoad = async ({ params }) => {
     count: Number(r.count)
   }));
 
-  return { menu, slots: slotRows, allRecipes, allCategories };
+  // Existing shopping list for this menu (if any) — surfaces a "Voir la liste"
+  // link in the UI instead of "Générer la liste".
+  const [existingList] = await db
+    .select({ id: shoppingLists.id })
+    .from(shoppingLists)
+    .where(eq(shoppingLists.menuId, menuId))
+    .limit(1);
+
+  return {
+    menu,
+    slots: slotRows,
+    allRecipes,
+    allCategories,
+    shoppingListId: existingList?.id ?? null
+  };
 };
 
 export const actions: Actions = {
@@ -358,5 +375,54 @@ export const actions: Actions = {
     }
 
     return { regenerated: true };
+  },
+
+  /**
+   * Generate (or regenerate) the shopping list for this menu.
+   * One list per menu — re-running overwrites the previous one.
+   */
+  generateShoppingList: async ({ params }) => {
+    const menuId = parseInt(params.id, 10);
+    if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
+
+    const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1);
+    if (!menu) return fail(404, { error: 'Menu introuvable.' });
+
+    const items = await generateShoppingItems(menuId);
+    if (items.length === 0) {
+      return fail(400, {
+        error:
+          "Aucun ingrédient à mettre dans la liste. Ajoute d'abord des recettes au menu."
+      });
+    }
+
+    // Replace any pre-existing list for this menu (cascade clears items).
+    await db.delete(shoppingLists).where(eq(shoppingLists.menuId, menuId));
+
+    const [created] = await db
+      .insert(shoppingLists)
+      .values({
+        menuId,
+        householdId: menu.householdId,
+        name: `Liste — ${menu.name}`
+      })
+      .returning();
+
+    if (!created) return fail(500, { error: 'Création de la liste impossible.' });
+
+    await db.insert(shoppingListItems).values(
+      items.map((it, position) => ({
+        listId: created.id,
+        nameFr: it.nameFr,
+        qty: it.qty,
+        unit: it.unit,
+        note: it.note,
+        ingredientId: it.ingredientId,
+        category: it.category,
+        position
+      }))
+    );
+
+    throw redirect(303, `/listes-de-courses/${created.id}`);
   }
 };
