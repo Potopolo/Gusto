@@ -25,6 +25,8 @@ export type ShoppingCategory =
   | 'epicerie'
   | 'boissons'
   | 'surgeles'
+  | 'hygiene'
+  | 'entretien'
   | 'autre';
 
 export const CATEGORY_LABELS: Record<ShoppingCategory, string> = {
@@ -35,10 +37,13 @@ export const CATEGORY_LABELS: Record<ShoppingCategory, string> = {
   epicerie: 'Épicerie',
   boissons: 'Boissons',
   surgeles: 'Surgelés',
+  hygiene: 'Hygiène',
+  entretien: 'Entretien',
   autre: 'Autre'
 };
 
-/** Display order in the shopping list view (supermarket-walk order). */
+/** Display order in the shopping list view (supermarket-walk order: food first,
+ *  then non-food rays at the back of the store, "autre" as catch-all). */
 export const CATEGORY_ORDER: ShoppingCategory[] = [
   'fruits-legumes',
   'viandes-poissons',
@@ -47,8 +52,15 @@ export const CATEGORY_ORDER: ShoppingCategory[] = [
   'epicerie',
   'boissons',
   'surgeles',
+  'hygiene',
+  'entretien',
   'autre'
 ];
+
+/** Runtime check: is a string a valid ShoppingCategory? */
+export function isShoppingCategory(s: unknown): s is ShoppingCategory {
+  return typeof s === 'string' && s in CATEGORY_LABELS;
+}
 
 // Keywords matched against the lowercased, accents-stripped item name.
 // Each entry is a substring or word-bounded pattern. Order of categories
@@ -150,6 +162,42 @@ const CATEGORY_KEYWORDS: Array<[ShoppingCategory, string[]]> = [
   [
     'surgeles',
     ['surgele', 'surgelé', 'congele', 'congelé', 'glace', 'sorbet']
+  ],
+  [
+    'hygiene',
+    [
+      'savon', 'shampoing', 'shampooing', 'apres-shampoing', 'apres-shampooing',
+      'gel douche', 'gel-douche', 'bain moussant', 'mousse a raser', 'rasoir',
+      'dentifrice', 'brosse a dents', 'fil dentaire', 'bain de bouche',
+      'deodorant', 'déodorant', 'parfum', 'eau de toilette',
+      'creme hydratante', 'crème hydratante', 'creme visage', 'creme corps',
+      'creme solaire', 'crème solaire', 'baume a levres', 'baume à lèvres',
+      'coton', 'coton tige', 'coton-tige', 'mouchoir', 'mouchoirs',
+      'papier toilette', 'papier hygienique', 'papier hygiénique', 'pq',
+      'serviette hygienique', 'tampon', 'tampons', 'protege-slip',
+      'couches', 'lingette bebe', 'lingettes bebe',
+      'preservatif', 'préservatif', 'preservatifs', 'préservatifs',
+      'maquillage', 'demaquillant', 'démaquillant', 'tonique', 'creme antirides',
+      'huile essentielle', 'lotion'
+    ]
+  ],
+  [
+    'entretien',
+    [
+      'lessive', 'adoucissant', 'detachant', 'détachant', 'javel', 'eau de javel',
+      'liquide vaisselle', 'pastille lave-vaisselle', 'pastilles lave-vaisselle',
+      'sel regenerant', 'sel régénérant', 'liquide rincage',
+      'eponge', 'éponge', 'eponges', 'éponges', 'sopalin', 'essuie-tout',
+      'sac poubelle', 'sacs poubelle', 'sacs-poubelle',
+      'nettoyant', 'desinfectant', 'désinfectant', 'antibacterien',
+      'multi-usage', 'multi usage', 'spray vitre', 'lave-vitre', 'lave vitre',
+      'wc', 'detartrant', 'détartrant', 'destop', 'soude',
+      'savon de marseille', 'savon noir', 'bicarbonate menager', 'bicarbonate ménager',
+      'vinaigre menager', 'vinaigre ménager', 'cristaux de soude',
+      'lingette nettoyante', 'lingettes nettoyantes',
+      'recharge spray', 'desodorisant', 'désodorisant', 'bougie parfumee',
+      'piles', 'pile lr', 'ampoule', 'allumettes', 'briquet'
+    ]
   ]
 ];
 

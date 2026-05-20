@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { enhance, deserialize } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
   import { format } from 'date-fns';
   import { fr } from 'date-fns/locale';
   import {
@@ -7,9 +8,41 @@
     CATEGORY_ORDER,
     type ShoppingCategory
   } from '$lib/shopping/categorize';
+  import { swipeToDelete } from '$lib/actions/swipeToDelete';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  // --- Manual add form ---
+  let addOpen = $state(false);
+  let addName = $state('');
+  let addQty = $state('');
+  let addUnit = $state('');
+  let addCategory = $state<ShoppingCategory | ''>('');
+  let addError = $state('');
+  let addBusy = $state(false);
+
+  function openAdd() {
+    addOpen = true;
+    addError = '';
+  }
+  function closeAdd() {
+    addOpen = false;
+    addName = addQty = addUnit = '';
+    addCategory = '';
+    addError = '';
+  }
+
+  // Fire-and-forget delete from the swipe gesture (same endpoint as the ✕ button)
+  async function deleteItem(itemId: number) {
+    const fd = new FormData();
+    fd.set('itemId', String(itemId));
+    const res = await fetch('?/removeItem', { method: 'POST', body: fd });
+    const result = deserialize(await res.text());
+    if (result.type === 'success' || result.type === 'redirect') {
+      await invalidateAll();
+    }
+  }
 
   // Group items by category, sort each group alphabetically.
   // Client-side check state — persistence will land in phase 2-C-4.
@@ -86,48 +119,70 @@
           <ul class="space-y-1">
             {#each group.items as it (it.id)}
               {@const isChecked = checked.has(it.id)}
-              <li class="group flex items-center gap-1">
-                <button
-                  type="button"
-                  onclick={() => toggle(it.id)}
-                  class="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1.5 text-left transition hover:bg-gusto-green-50"
+              <li class="relative overflow-hidden rounded-md">
+                <!-- Swipe-reveal "Supprimer" backdrop (touch only) -->
+                <div
+                  class="pointer-events-none absolute inset-0 flex items-center justify-end rounded-md bg-gusto-pink-700 px-4 text-sm font-medium text-gusto-cream"
+                  aria-hidden="true"
                 >
-                  <span
-                    class="flex h-5 w-5 flex-none items-center justify-center rounded border {isChecked
-                      ? 'border-gusto-green bg-gusto-green text-gusto-cream'
-                      : 'border-gusto-green-200 bg-white'}"
-                    aria-hidden="true"
-                  >
-                    {#if isChecked}✓{/if}
-                  </span>
-                  <span
-                    class="min-w-0 flex-1 text-sm {isChecked
-                      ? 'text-gusto-green-700/50 line-through'
-                      : 'text-gusto-green-900'}"
-                  >
-                    {it.nameFr}
-                  </span>
-                  {#if it.qty != null}
-                    <span
-                      class="flex-none text-xs {isChecked
-                        ? 'text-gusto-green-700/40'
-                        : 'text-gusto-green-700/70'}"
-                    >
-                      {formatQty(it.qty, it.unit)}
-                    </span>
-                  {/if}
-                </button>
-                <form method="post" action="?/removeItem" use:enhance>
-                  <input type="hidden" name="itemId" value={it.id} />
+                  Supprimer
+                </div>
+
+                <div
+                  use:swipeToDelete={{ onDelete: () => deleteItem(it.id) }}
+                  class="group relative flex items-center gap-1 rounded-md bg-gusto-cream"
+                >
                   <button
-                    type="submit"
-                    aria-label={`Supprimer ${it.nameFr}`}
-                    title="Supprimer cet article"
-                    class="flex h-7 w-7 flex-none items-center justify-center rounded-full text-gusto-green-700/40 transition hover:bg-gusto-pink hover:text-gusto-green-900 sm:opacity-0 sm:group-hover:opacity-100"
+                    type="button"
+                    onclick={() => toggle(it.id)}
+                    class="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1.5 text-left transition hover:bg-gusto-green-50"
                   >
-                    ✕
+                    <span
+                      class="flex h-5 w-5 flex-none items-center justify-center rounded border {isChecked
+                        ? 'border-gusto-green bg-gusto-green text-gusto-cream'
+                        : 'border-gusto-green-200 bg-white'}"
+                      aria-hidden="true"
+                    >
+                      {#if isChecked}✓{/if}
+                    </span>
+                    <span
+                      class="min-w-0 flex-1 text-sm {isChecked
+                        ? 'text-gusto-green-700/50 line-through'
+                        : 'text-gusto-green-900'}"
+                    >
+                      {it.nameFr}
+                      {#if it.isManual}
+                        <span
+                          aria-label="Article ajouté manuellement"
+                          title="Ajouté manuellement"
+                          class="ml-1 text-[10px] text-gusto-green-700/50"
+                        >
+                          ✎
+                        </span>
+                      {/if}
+                    </span>
+                    {#if it.qty != null}
+                      <span
+                        class="flex-none text-xs {isChecked
+                          ? 'text-gusto-green-700/40'
+                          : 'text-gusto-green-700/70'}"
+                      >
+                        {formatQty(it.qty, it.unit)}
+                      </span>
+                    {/if}
                   </button>
-                </form>
+                  <form method="post" action="?/removeItem" use:enhance>
+                    <input type="hidden" name="itemId" value={it.id} />
+                    <button
+                      type="submit"
+                      aria-label={`Supprimer ${it.nameFr}`}
+                      title="Supprimer cet article"
+                      class="flex h-7 w-7 flex-none items-center justify-center rounded-full text-gusto-green-700/40 transition hover:bg-gusto-pink hover:text-gusto-green-900 sm:opacity-0 sm:group-hover:opacity-100"
+                    >
+                      ✕
+                    </button>
+                  </form>
+                </div>
               </li>
             {/each}
           </ul>
@@ -136,8 +191,113 @@
     </div>
   {/if}
 
-  <footer class="rounded-lg border border-dashed border-gusto-cream/30 p-4 text-sm text-gusto-cream/70">
-    <span class="font-medium text-gusto-cream/90">Bientôt :</span>
-    édition manuelle des articles + sauvegarde des cases cochées (phase 2-C-4).
-  </footer>
+  <!-- Manual add ----------------------------------------------------------- -->
+  {#if !addOpen}
+    <button
+      type="button"
+      onclick={openAdd}
+      class="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-gusto-cream/30 bg-transparent px-4 py-3 text-sm text-gusto-cream/80 hover:border-gusto-cream/60 hover:text-gusto-cream"
+    >
+      <span aria-hidden="true">+</span> Ajouter un article
+    </button>
+  {:else}
+    <form
+      method="post"
+      action="?/addItem"
+      use:enhance={() => {
+        addBusy = true;
+        addError = '';
+        return async ({ result, update }) => {
+          if (result.type === 'success') {
+            await update({ reset: false });
+            addName = '';
+            addQty = '';
+            addUnit = '';
+            // keep addCategory so adding several items of the same category is fast
+          } else if (result.type === 'failure') {
+            addError = (result.data?.error as string) ?? 'Échec de l’ajout.';
+          }
+          addBusy = false;
+        };
+      }}
+      class="space-y-3 rounded-lg bg-gusto-cream p-4 text-gusto-green-900"
+    >
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-sm font-semibold">Ajouter un article</h2>
+        <button
+          type="button"
+          onclick={closeAdd}
+          class="text-xs text-gusto-green-700/70 hover:text-gusto-green-900"
+        >
+          Fermer
+        </button>
+      </div>
+
+      <label class="block text-xs font-medium text-gusto-green-700">
+        Nom
+        <input
+          type="text"
+          name="name"
+          bind:value={addName}
+          required
+          maxlength="120"
+          placeholder="ex. papier toilette, gingembre, lessive…"
+          class="mt-1 block w-full rounded-md text-sm shadow-sm"
+        />
+      </label>
+
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block text-xs font-medium text-gusto-green-700">
+          Quantité
+          <input
+            type="text"
+            name="qty"
+            bind:value={addQty}
+            inputmode="decimal"
+            placeholder="optionnel"
+            class="mt-1 block w-full rounded-md text-sm shadow-sm"
+          />
+        </label>
+        <label class="block text-xs font-medium text-gusto-green-700">
+          Unité
+          <input
+            type="text"
+            name="unit"
+            bind:value={addUnit}
+            maxlength="16"
+            placeholder="g, ml, paquet…"
+            class="mt-1 block w-full rounded-md text-sm shadow-sm"
+          />
+        </label>
+      </div>
+
+      <label class="block text-xs font-medium text-gusto-green-700">
+        Catégorie
+        <select
+          name="category"
+          bind:value={addCategory}
+          class="mt-1 block w-full rounded-md text-sm shadow-sm"
+        >
+          <option value="">Détecter automatiquement</option>
+          {#each CATEGORY_ORDER as cat (cat)}
+            <option value={cat}>{CATEGORY_LABELS[cat]}</option>
+          {/each}
+        </select>
+      </label>
+
+      {#if addError}
+        <p class="text-xs text-gusto-pink-700">{addError}</p>
+      {/if}
+
+      <div class="flex justify-end gap-2">
+        <button
+          type="submit"
+          disabled={addBusy || !addName.trim()}
+          class="rounded-md bg-gusto-pink px-3 py-1.5 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200 disabled:opacity-50"
+        >
+          {addBusy ? '…' : 'Ajouter'}
+        </button>
+      </div>
+    </form>
+  {/if}
 </section>

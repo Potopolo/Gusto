@@ -1,11 +1,12 @@
 import { error, fail, type Actions } from '@sveltejs/kit';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
   menus,
   shoppingLists,
   shoppingListItems
 } from '$lib/server/db/schema';
+import { categorize, isShoppingCategory } from '$lib/shopping/categorize';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -55,5 +56,60 @@ export const actions: Actions = {
       );
 
     return { removed: true };
+  },
+
+  /**
+   * Add a manual item to a list. Used for both food and non-food (hygiène,
+   * entretien). Category can be passed explicitly or left empty to auto-
+   * detect from the item name.
+   */
+  addItem: async ({ request, params }) => {
+    const listId = parseInt(params.id, 10);
+    if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
+
+    // Verify list exists before accepting writes
+    const [list] = await db
+      .select({ id: shoppingLists.id })
+      .from(shoppingLists)
+      .where(eq(shoppingLists.id, listId))
+      .limit(1);
+    if (!list) return fail(404, { error: 'Liste introuvable.' });
+
+    const data = await request.formData();
+    const name = ((data.get('name') ?? '').toString()).trim();
+    if (!name) return fail(400, { error: 'Donne un nom à l’article.' });
+    if (name.length > 120) return fail(400, { error: 'Nom trop long.' });
+
+    const qtyRaw = (data.get('qty') ?? '').toString().trim().replace(',', '.');
+    const qty = qtyRaw ? parseFloat(qtyRaw) : null;
+    if (qty != null && (!Number.isFinite(qty) || qty < 0)) {
+      return fail(400, { error: 'Quantité invalide.' });
+    }
+
+    const unit = ((data.get('unit') ?? '').toString()).trim().slice(0, 16) || null;
+
+    const rawCat = (data.get('category') ?? '').toString();
+    const category =
+      rawCat && isShoppingCategory(rawCat) ? rawCat : categorize(name);
+
+    // Append at the end of the list
+    const [last] = await db
+      .select({ position: shoppingListItems.position })
+      .from(shoppingListItems)
+      .where(eq(shoppingListItems.listId, listId))
+      .orderBy(desc(shoppingListItems.position))
+      .limit(1);
+
+    await db.insert(shoppingListItems).values({
+      listId,
+      nameFr: name,
+      qty,
+      unit,
+      category,
+      isManual: true,
+      position: (last?.position ?? -1) + 1
+    });
+
+    return { added: true };
   }
 };
