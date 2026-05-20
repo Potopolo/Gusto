@@ -32,7 +32,16 @@ function cleanText(s: string): string {
   return s.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** Find first h1/h2/h3 in scope whose text matches any of the keyword patterns. */
+/**
+ * Find the first section marker in scope matching any of the patterns.
+ *
+ * Amandine pages use one of three conventions:
+ *   1. real headings (h1/h2/h3) — modern template
+ *   2. bold text inside a heading wrapper: <h2><strong>Ingrédients:</strong></h2>
+ *   3. bold text inside a plain block element: <div><strong>Ingrédients:</strong></div>
+ *
+ * We try real headings first, then fall back to <div>/<p> with bold content.
+ */
 function findHeadingByKeyword(
   $: cheerio.CheerioAPI,
   scope: cheerio.Cheerio<any>,
@@ -45,39 +54,100 @@ function findHeadingByKeyword(
       return false;
     }
   });
+  if (found.length) return found;
+
+  // Fallback: <div> or <p> opening with a <strong>/<b> whose text matches.
+  // Some pages append a parenthetical comment after the bold label
+  // (e.g. "Ingrédients: (pour 6 verrines - j'ai utilisé ces verrines d'IKEA…)")
+  // so we test the strong's own text, not the whole block's text.
+  scope.find('div, p').each((_, el) => {
+    const $el = $(el);
+    const $strong = $el.find('strong, b').first();
+    if (!$strong.length) return;
+    const strongTxt = $strong.text();
+    if (!patterns.some((p) => p.test(strongTxt))) return;
+    // Skip body paragraphs that merely mention the keyword in passing:
+    // require the strong text to start the block.
+    const blockText = $el.text().trim();
+    if (!blockText.startsWith(strongTxt.trim().slice(0, Math.min(4, strongTxt.trim().length)))) {
+      return;
+    }
+    found = $el;
+    return false;
+  });
   return found;
 }
 
 /**
- * Collect text from every <li> inside elements of `listType` between the start heading
- * and the next heading at any level. Handles recipes with sub-sections like
- * "pour la pâte / pour la garniture" that span multiple ULs.
+ * Collect text from every <li> inside elements of `listType` that appear AFTER the
+ * start heading and BEFORE the next heading.
+ *
+ * Amandine recipes come in two template variants:
+ *   - Old layout: heading and UL are direct siblings (.ob-section-html > h2 + ul).
+ *   - New layout: heading is nested inside a wrapper div (.ob-section-html > div > h2),
+ *     and the UL is the NEXT sibling of that wrapper div, not of the heading itself.
+ *
+ * To handle both, we walk up from the heading until we reach a node whose parent
+ * is `scope` (the .ob-section-html container) — call this the "section anchor".
+ * We then collect lists from anchor.nextAll() until we hit a sibling that either
+ * IS a heading or CONTAINS a heading (which would mean we've reached the next
+ * recipe section, e.g. "Préparation").
  */
 function collectListItemsBetweenHeadings(
   $: cheerio.CheerioAPI,
+  scope: cheerio.Cheerio<any>,
   startHeading: cheerio.Cheerio<any>,
   listType: 'ul' | 'ol'
 ): string[] {
   const items: string[] = [];
-  let after = false;
-  startHeading
-    .parent()
-    .children()
-    .each((_, el) => {
-      const $el = $(el);
-      if ($el[0] === startHeading[0]) {
-        after = true;
-        return;
-      }
-      if (!after) return;
-      if ($el.is('h1, h2, h3, h4')) return false;
-      if ($el.is(listType)) {
-        $el.find('> li').each((_, li) => {
-          const t = cleanText($(li).text());
-          if (t) items.push(t);
-        });
-      }
+  if (!startHeading.length || !scope.length) return items;
+
+  // Walk up until startHeading's ancestor is a direct child of scope.
+  let anchor: cheerio.Cheerio<any> = startHeading;
+  while (anchor.length && anchor.parent()[0] !== scope[0]) {
+    const parent = anchor.parent();
+    if (!parent.length) break;
+    anchor = parent;
+  }
+  if (!anchor.length) return items;
+
+  const collectFromUl = ($ul: cheerio.Cheerio<any>) => {
+    $ul.find('> li').each((_, li) => {
+      const t = cleanText($(li).text());
+      if (t) items.push(t);
     });
+  };
+
+  // Major section markers that end the ingredients block. Subsection labels like
+  // "Pour la pâte:", "Pour le coulis:" must NOT stop the walk — recipes often
+  // split ingredients across multiple ULs under such sub-labels.
+  const NEXT_SECTION_RE =
+    /^(pr[éeèê]paration|[ée]tapes?|instructions?|astuces?|conseils?|foire aux questions|faq|d[’']autres|autres recettes|partager|commenter|vous aimerez|d[ée]tails nutritionnels)\b/i;
+
+  const looksLikeSectionLabel = ($el: cheerio.Cheerio<any>): boolean => {
+    if ($el.is('h1, h2, h3, h4')) return true;
+    if ($el.find('h1, h2, h3, h4').length > 0) return true;
+    if ($el.is('div, p')) {
+      const $strong = $el.find('strong, b').first();
+      if (!$strong.length) return false;
+      const strongTxt = $strong.text().trim();
+      if (strongTxt.length > 60) return false;
+      if (!NEXT_SECTION_RE.test(strongTxt)) return false;
+      const blockText = $el.text().trim();
+      return blockText.startsWith(strongTxt.slice(0, Math.min(4, strongTxt.length)));
+    }
+    return false;
+  };
+
+  anchor.nextAll().each((_, el) => {
+    const $el = $(el);
+    if (looksLikeSectionLabel($el)) return false;
+    if ($el.is(listType)) {
+      collectFromUl($el);
+    } else {
+      $el.find(listType).each((_, ul) => collectFromUl($(ul)));
+    }
+  });
   return items;
 }
 
@@ -132,7 +202,7 @@ export function parseAmandineHTML(html: string, sourceUrl: string): ParsedRecipe
   }
 
   // Ingredients: every <li> in every <ul> between "Ingrédients" and the next heading
-  const ingredientLines = collectListItemsBetweenHeadings($, ingredientsHeading, 'ul');
+  const ingredientLines = collectListItemsBetweenHeadings($, body, ingredientsHeading, 'ul');
   if (ingredientLines.length === 0) return null;
 
   const ingredients: Array<ParsedIngredient & { position: number }> = ingredientLines.map(
@@ -142,7 +212,7 @@ export function parseAmandineHTML(html: string, sourceUrl: string): ParsedRecipe
   // Instructions: every <li> in every <ol> between "Préparation" and the next heading
   const prepHeading = findHeadingByKeyword($, body, PREPARATION_PATTERNS);
   const instructions = prepHeading.length
-    ? collectListItemsBetweenHeadings($, prepHeading, 'ol')
+    ? collectListItemsBetweenHeadings($, body, prepHeading, 'ol')
     : [];
   const instructionsMd = instructions.map((s, i) => `${i + 1}. ${s}`).join('\n');
 
