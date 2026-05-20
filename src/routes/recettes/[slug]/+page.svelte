@@ -43,7 +43,7 @@
 </script>
 
 <article class="space-y-8">
-  <nav class="text-sm">
+  <nav class="text-center text-sm sm:text-left">
     <a href="/recettes" class="text-gusto-cream/70 hover:text-gusto-cream">← Recettes</a>
   </nav>
 
@@ -57,12 +57,12 @@
     </figure>
   {/if}
 
-  <header class="space-y-3">
+  <header class="space-y-3 text-center sm:text-left">
     <h1 class="text-3xl font-semibold leading-tight text-gusto-cream">
       {data.recipe.nameFr}
     </h1>
 
-    <div class="flex flex-wrap items-center gap-1.5 text-xs">
+    <div class="flex flex-wrap items-center justify-center gap-1.5 text-xs sm:justify-start">
       {#each data.categories as cat (cat.slug)}
         <span class="rounded-full bg-gusto-cream/10 px-2 py-0.5 text-gusto-cream/90"
           >{cat.nameFr}</span

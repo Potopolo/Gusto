@@ -7,11 +7,11 @@
 </script>
 
 <section class="space-y-6">
-  <nav class="text-sm">
+  <nav class="text-center text-sm sm:text-left">
     <a href="/menus" class="text-gusto-cream/70 hover:text-gusto-cream">← Menus</a>
   </nav>
 
-  <header class="space-y-2">
+  <header class="space-y-2 text-center sm:text-left">
     <h1 class="text-2xl font-semibold text-gusto-cream">Nouveau menu</h1>
     <p class="text-sm text-gusto-cream/70">
       Gusto te génère 7 jours de recettes adaptées à ton objectif points et à la saison.

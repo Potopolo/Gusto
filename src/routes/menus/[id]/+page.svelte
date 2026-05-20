@@ -201,11 +201,11 @@
 </script>
 
 <section class="space-y-6">
-  <nav class="text-sm">
+  <nav class="text-center text-sm sm:text-left">
     <a href="/menus" class="text-gusto-cream/70 hover:text-gusto-cream">← Menus</a>
   </nav>
 
-  <header class="flex flex-wrap items-center justify-between gap-3">
+  <header class="flex flex-col items-center gap-3 text-center sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:text-left">
     <div>
       <h1 class="text-2xl font-semibold text-gusto-cream">{data.menu.name}</h1>
       <p class="text-sm text-gusto-cream/70">
@@ -217,7 +217,7 @@
       </p>
     </div>
     {#if !adding}
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
         <form
           method="post"
           action="?/regenerate"
