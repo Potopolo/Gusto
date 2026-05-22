@@ -13,6 +13,43 @@
 
   let { data }: { data: PageData } = $props();
 
+  // Initialize the checked set from the persisted item.isChecked flag.
+  // Use $state(...) wrapped in an IIFE so re-mounts (e.g. after a list
+  // generation) hydrate from the latest server payload.
+  let checked = $state<Set<number>>(
+    new Set(data.items.filter((it) => it.isChecked).map((it) => it.id))
+  );
+
+  async function toggle(itemId: number) {
+    // Optimistic flip
+    const wasChecked = checked.has(itemId);
+    const next = new Set(checked);
+    if (wasChecked) next.delete(itemId);
+    else next.add(itemId);
+    checked = next;
+
+    // Persist in the background — rollback on failure
+    try {
+      const fd = new FormData();
+      fd.set('itemId', String(itemId));
+      fd.set('checked', wasChecked ? '0' : '1');
+      const res = await fetch('?/toggleItem', { method: 'POST', body: fd });
+      const result = deserialize(await res.text());
+      if (result.type !== 'success') {
+        // rollback
+        const rb = new Set(checked);
+        if (wasChecked) rb.add(itemId);
+        else rb.delete(itemId);
+        checked = rb;
+      }
+    } catch {
+      const rb = new Set(checked);
+      if (wasChecked) rb.add(itemId);
+      else rb.delete(itemId);
+      checked = rb;
+    }
+  }
+
   // --- Manual add form ---
   let addOpen = $state(false);
   let addName = $state('');
@@ -45,16 +82,6 @@
   }
 
   // Group items by category, sort each group alphabetically.
-  // Client-side check state — persistence will land in phase 2-C-4.
-  let checked = $state<Set<number>>(new Set());
-
-  function toggle(id: number) {
-    const next = new Set(checked);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    checked = next;
-  }
-
   const grouped = $derived.by(() => {
     const map = new Map<ShoppingCategory, typeof data.items>();
     for (const it of data.items) {

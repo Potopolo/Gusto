@@ -111,5 +111,35 @@ export const actions: Actions = {
     });
 
     return { added: true };
+  },
+
+  /**
+   * Toggle the is_checked flag on a single item. Used by the optimistic
+   * client-side checkbox in the list view — the UI flips immediately, this
+   * write is fire-and-forget, and a failure response rolls the UI back.
+   */
+  toggleItem: async ({ request, params }) => {
+    const listId = parseInt(params.id, 10);
+    if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
+
+    const data = await request.formData();
+    const itemId = parseInt((data.get('itemId') ?? '').toString(), 10);
+    const checkedRaw = (data.get('checked') ?? '').toString();
+    if (!Number.isFinite(itemId)) return fail(400, { error: 'Article invalide.' });
+    if (checkedRaw !== '0' && checkedRaw !== '1') {
+      return fail(400, { error: 'État invalide.' });
+    }
+
+    await db
+      .update(shoppingListItems)
+      .set({ isChecked: checkedRaw === '1' })
+      .where(
+        and(
+          eq(shoppingListItems.id, itemId),
+          eq(shoppingListItems.listId, listId)
+        )
+      );
+
+    return { toggled: true, checked: checkedRaw === '1' };
   }
 };
