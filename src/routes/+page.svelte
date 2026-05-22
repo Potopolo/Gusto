@@ -5,50 +5,55 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  const SEASON_LABELS: Record<string, string> = {
+    printemps: 'printemps',
+    ete: 'été',
+    automne: 'automne',
+    hiver: 'hiver'
+  };
+
+  const BUCKET_LABELS: Record<string, string> = {
+    plat: 'plat',
+    apero: 'apéro',
+    dessert: 'dessert'
+  };
 </script>
 
 <section class="space-y-8">
   <header class="space-y-3">
     <h1 class="text-3xl font-normal text-gusto-pink">
-      Bonjour {data.currentUser?.labelFr ?? ''}.
+      Bonjour {data.currentUser?.labelFr ?? ''} !
     </h1>
     <p class="text-gusto-cream/80">
-      Cherche une recette, fais un menu, dresse ta liste de courses.
+      Buffet d'idées de l'apéro au dessert …
+      <br />
+      <span class="text-sm italic text-gusto-cream/60">
+        (à picorer sans modération !)
+      </span>
     </p>
   </header>
 
-  <form action="/recettes" method="get" class="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-    <input
-      type="search"
-      name="q"
-      placeholder="Chercher une recette…"
-      autocomplete="off"
-      class="block w-full rounded-md text-gusto-green-900 placeholder:text-gusto-green-200 shadow-sm"
-    />
-    <button
-      type="submit"
-      class="rounded-md bg-gusto-pink px-5 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
-    >
-      Chercher
-    </button>
-    <a
-      href="/menus"
-      class="rounded-md border border-gusto-cream/30 bg-transparent px-5 py-2 text-center text-sm font-medium text-gusto-cream hover:bg-gusto-cream/10"
-    >
-      Faire un menu
-    </a>
-  </form>
+  <a
+    href="/menus"
+    class="block w-full rounded-md bg-gusto-pink px-5 py-2.5 text-center text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+  >
+    Faire un menu
+  </a>
 
-  {#if data.recentRecipes.length}
+  {#if data.suggestions.length}
     <section class="space-y-4">
       <div class="flex items-baseline justify-between">
-        <h2 class="text-lg font-semibold text-gusto-cream">Recettes récentes</h2>
+        <h2 class="text-lg font-semibold text-gusto-cream">
+          Suggestions de {SEASON_LABELS[data.season] ?? data.season}
+        </h2>
         <a href="/recettes" class="text-sm text-gusto-cream/70 hover:text-gusto-cream">
           Voir tout →
         </a>
       </div>
+
       <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {#each data.recentRecipes as recipe (recipe.id)}
+        {#each data.suggestions as recipe (recipe.id)}
           <li>
             <a
               href={`/recettes/${recipe.slug}`}
@@ -85,6 +90,11 @@
                     variant="overlay"
                   />
                 </div>
+                <span
+                  class="absolute bottom-2 left-2 rounded-full bg-gusto-green-900/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gusto-cream backdrop-blur-sm"
+                >
+                  {BUCKET_LABELS[recipe.bucket] ?? recipe.bucket}
+                </span>
               </div>
               <div class="space-y-1 p-3">
                 <h3 class="text-base font-normal leading-snug text-gusto-green-900">
@@ -113,9 +123,7 @@
     <p
       class="rounded-lg border border-dashed border-gusto-cream/30 bg-gusto-cream/5 p-6 text-sm text-gusto-cream/80"
     >
-      Aucune recette en base. Lance <code class="rounded bg-gusto-cream/10 px-1.5 py-0.5"
-        >npm run scrape:amandine -- --limit=10</code
-      > pour importer un premier lot.
+      Aucune recette de saison dans la base pour l'instant.
     </p>
   {/if}
 </section>

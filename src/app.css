@@ -47,3 +47,76 @@
     border-color: #9fbaa9;
   }
 }
+
+/* --- Header nav icons -------------------------------------------------- */
+/* The nav icons live in /static/icons/nav as SVG masks. The element's
+ * background-color drives the visible color, so we can recolor via any
+ * Tailwind text-* utility. Per-icon scale fine-tunes perceived size since
+ * the source SVGs have different viewBox aspect ratios. */
+.nav-icon {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  transform-origin: center;
+  /* Per-icon base scale tunes perceived size since the source SVGs have
+   * different viewBox aspect ratios. The keyframe respects it via calc(). */
+  transform: scale(var(--nav-scale, 1));
+}
+.nav-icon-home {
+  -webkit-mask-image: url('/icons/nav/home.svg');
+  mask-image: url('/icons/nav/home.svg');
+  --nav-scale: 0.95;
+}
+.nav-icon-recipe {
+  -webkit-mask-image: url('/icons/nav/recipe.svg');
+  mask-image: url('/icons/nav/recipe.svg');
+  --nav-scale: 0.97;
+}
+.nav-icon-menus {
+  -webkit-mask-image: url('/icons/nav/menus.svg');
+  mask-image: url('/icons/nav/menus.svg');
+  --nav-scale: 0.92;
+}
+.nav-icon-courses {
+  -webkit-mask-image: url('/icons/nav/courses.svg');
+  mask-image: url('/icons/nav/courses.svg');
+  --nav-scale: 0.99;
+}
+.nav-icon-favoris {
+  -webkit-mask-image: url('/icons/nav/favoris.svg');
+  mask-image: url('/icons/nav/favoris.svg');
+  --nav-scale: 1;
+}
+.nav-icon-settings {
+  -webkit-mask-image: url('/icons/nav/settings.svg');
+  mask-image: url('/icons/nav/settings.svg');
+  --nav-scale: 1.05;
+}
+
+/* One-shot pop on activation. We re-trigger this via {#key} in the
+ * Header component so the keyframe restarts from 0 each time the
+ * active state changes. */
+@keyframes nav-pop {
+  0% {
+    transform: scale(calc(var(--nav-scale, 1) * 0.9));
+  }
+  45% {
+    transform: scale(calc(var(--nav-scale, 1) * 1.22)) rotate(-6deg);
+  }
+  72% {
+    transform: scale(calc(var(--nav-scale, 1) * 0.96)) rotate(3deg);
+  }
+  100% {
+    transform: scale(var(--nav-scale, 1)) rotate(0deg);
+  }
+}
+.nav-pop {
+  animation: nav-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
