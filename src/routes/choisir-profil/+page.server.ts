@@ -72,6 +72,6 @@ export const actions: Actions = {
     });
 
     setCurrentUserCookie(cookies, newUser.id);
-    throw redirect(303, '/profil');
+    throw redirect(303, '/favoris');
   }
 };

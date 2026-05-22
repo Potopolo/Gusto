@@ -7,41 +7,11 @@
 
 <section class="space-y-8">
   <header class="space-y-1">
-    <h1 class="text-2xl font-semibold text-gusto-cream">Profil</h1>
-    <p class="text-sm text-gusto-cream/70">Édite ton profil et l'équipement de cuisine.</p>
+    <h1 class="text-2xl font-semibold text-gusto-cream">Favoris</h1>
+    <p class="text-sm text-gusto-cream/70">
+      Tes recettes et aliments préférés, à portée de main.
+    </p>
   </header>
-
-  <form
-    method="post"
-    action="?/saveProfile"
-    use:enhance
-    class="space-y-6 rounded-lg bg-gusto-cream p-6"
-  >
-    <label class="block text-sm">
-      <span class="mb-1 block font-medium text-gusto-green-700">Nom affiché</span>
-      <input
-        name="labelFr"
-        type="text"
-        required
-        value={data.currentUser?.labelFr ?? ''}
-        class="block w-full rounded-md text-gusto-green-900 shadow-sm"
-      />
-    </label>
-
-    {#if form?.error}
-      <p class="text-sm text-gusto-pink-700">{form.error}</p>
-    {/if}
-    {#if form?.saved === 'profile'}
-      <p class="text-sm text-gusto-green">Profil enregistré.</p>
-    {/if}
-
-    <button
-      type="submit"
-      class="rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
-    >
-      Enregistrer
-    </button>
-  </form>
 
   <section class="space-y-4">
     <header class="space-y-1">

@@ -10,7 +10,7 @@
     { href: '/recettes', label: 'Recettes' },
     { href: '/menus', label: 'Menus' },
     { href: '/listes-de-courses', label: 'Courses' },
-    { href: '/profil', label: 'Profil' }
+    { href: '/favoris', label: 'Favoris' }
   ];
 
   function isActive(href: string): boolean {
@@ -26,7 +26,7 @@
       <img src="/icons/logo-full-pink.png" alt="Gusto" class="h-12 w-auto sm:h-16" />
     </a>
 
-    <nav class="ml-auto flex items-center gap-4 text-base sm:gap-6">
+    <nav class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-base sm:gap-x-6">
       {#each links as link (link.href)}
         {@const active = isActive(link.href)}
         <a
@@ -50,6 +50,14 @@
           {#if householdUsers.length > 1}
             <span aria-hidden="true" class="opacity-60">↓</span>
           {/if}
+        </a>
+        <a
+          href="/parametres"
+          aria-label="Paramètres"
+          title="Paramètres"
+          class="flex h-7 w-7 items-center justify-center rounded-full text-gusto-cream/70 transition hover:bg-gusto-cream/10 hover:text-gusto-cream"
+        >
+          <span aria-hidden="true" class="text-base leading-none">⚙</span>
         </a>
       {/if}
     </nav>

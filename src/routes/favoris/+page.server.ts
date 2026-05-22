@@ -3,7 +3,6 @@ import { db } from '$lib/server/db';
 import {
   profiles,
   equipment,
-  users,
   favoriteRecipes,
   favoriteIngredients,
   recipes,
@@ -11,12 +10,7 @@ import {
   type Profile
 } from '$lib/server/db/schema';
 import { asc, desc, eq } from 'drizzle-orm';
-import { z } from 'zod';
 import type { PageServerLoad } from './$types';
-
-const profileFormSchema = z.object({
-  labelFr: z.string().min(1).max(40)
-});
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.currentUser) throw redirect(303, '/choisir-profil');
@@ -66,23 +60,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-  saveProfile: async ({ request, locals }) => {
-    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
-
-    const data = await request.formData();
-    const parsed = profileFormSchema.safeParse({ labelFr: data.get('labelFr') });
-    if (!parsed.success) {
-      return fail(400, { error: 'Nom invalide.', issues: parsed.error.flatten() });
-    }
-
-    await db
-      .update(users)
-      .set({ labelFr: parsed.data.labelFr })
-      .where(eq(users.id, locals.currentUser.id));
-
-    return { saved: 'profile' };
-  },
-
   toggleEquipment: async ({ request }) => {
     const data = await request.formData();
     const id = parseInt((data.get('id') ?? '').toString(), 10);
