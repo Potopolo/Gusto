@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export type MacroTargets = {
@@ -255,6 +255,40 @@ export const shoppingListItems = sqliteTable('shopping_list_items', {
   position: integer('position').notNull().default(0)
 });
 
+// ---- Favorites (per-user) ----
+
+export const favoriteRecipes = sqliteTable(
+  'favorite_recipes',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    recipeId: integer('recipe_id')
+      .notNull()
+      .references(() => recipes.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .default(sql`(unixepoch())`)
+      .notNull()
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.recipeId] }) })
+);
+
+export const favoriteIngredients = sqliteTable(
+  'favorite_ingredients',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ingredientId: integer('ingredient_id')
+      .notNull()
+      .references(() => ingredients.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .default(sql`(unixepoch())`)
+      .notNull()
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.ingredientId] }) })
+);
+
 // ---- Inferred types ----
 
 export type Household = typeof households.$inferSelect;
@@ -269,3 +303,5 @@ export type Menu = typeof menus.$inferSelect;
 export type MenuSlot = typeof menuSlots.$inferSelect;
 export type ShoppingList = typeof shoppingLists.$inferSelect;
 export type ShoppingListItem = typeof shoppingListItems.$inferSelect;
+export type FavoriteRecipe = typeof favoriteRecipes.$inferSelect;
+export type FavoriteIngredient = typeof favoriteIngredients.$inferSelect;

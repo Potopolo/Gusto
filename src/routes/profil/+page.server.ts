@@ -1,7 +1,16 @@
 import { error, fail, redirect, type Actions } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { profiles, equipment, users, type Profile } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import {
+  profiles,
+  equipment,
+  users,
+  favoriteRecipes,
+  favoriteIngredients,
+  recipes,
+  ingredients,
+  type Profile
+} from '$lib/server/db/schema';
+import { asc, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
 
@@ -27,9 +36,37 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const allEquipment = await db.select().from(equipment).orderBy(equipment.nameFr);
 
+  const favRecipes = await db
+    .select({
+      id: recipes.id,
+      slug: recipes.slug,
+      nameFr: recipes.nameFr,
+      photoUrl: recipes.photoUrl,
+      pointsPerServing: recipes.pointsPerServing,
+      prepMinutes: recipes.prepMinutes,
+      favoritedAt: favoriteRecipes.createdAt
+    })
+    .from(favoriteRecipes)
+    .innerJoin(recipes, eq(favoriteRecipes.recipeId, recipes.id))
+    .where(eq(favoriteRecipes.userId, locals.currentUser.id))
+    .orderBy(desc(favoriteRecipes.createdAt));
+
+  const favIngredients = await db
+    .select({
+      id: ingredients.id,
+      nameFr: ingredients.nameFr,
+      favoritedAt: favoriteIngredients.createdAt
+    })
+    .from(favoriteIngredients)
+    .innerJoin(ingredients, eq(favoriteIngredients.ingredientId, ingredients.id))
+    .where(eq(favoriteIngredients.userId, locals.currentUser.id))
+    .orderBy(asc(ingredients.nameFr));
+
   return {
     profile: profile as Profile,
-    equipment: allEquipment
+    equipment: allEquipment,
+    favRecipes,
+    favIngredients
   };
 };
 

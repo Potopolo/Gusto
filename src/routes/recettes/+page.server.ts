@@ -1,5 +1,10 @@
 import { db } from '$lib/server/db';
-import { recipes, recipeCategories, categories } from '$lib/server/db/schema';
+import {
+  recipes,
+  recipeCategories,
+  categories,
+  favoriteRecipes
+} from '$lib/server/db/schema';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
@@ -13,6 +18,7 @@ export type RecipeListItem = {
   pointsPerServing: number | null;
   prepMinutes: number | null;
   categories: Array<{ slug: string; nameFr: string; kind: string }>;
+  isFavorite: boolean;
 };
 
 export type CategoryPill = {
@@ -48,9 +54,10 @@ function parseCatsParam(url: URL): string[] {
   return Array.from(out);
 }
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
   const q = (url.searchParams.get('q') ?? '').trim();
   const selectedCats = parseCatsParam(url);
+  const userId = locals.currentUser?.id ?? null;
 
   // 1) For multi-category AND filter: get recipe IDs that match EVERY selected slug
   let recipeIdsForCats: number[] | null = null;
@@ -124,9 +131,25 @@ export const load: PageServerLoad = async ({ url }) => {
     catsByRecipe.set(c.recipeId, list);
   }
 
+  // Pull favorite recipe IDs for the current user once, in O(1) per card
+  const favSet = new Set<number>();
+  if (userId != null && rows.length > 0) {
+    const favRows = await db
+      .select({ recipeId: favoriteRecipes.recipeId })
+      .from(favoriteRecipes)
+      .where(
+        and(
+          eq(favoriteRecipes.userId, userId),
+          inArray(favoriteRecipes.recipeId, rows.map((r) => r.id))
+        )
+      );
+    for (const f of favRows) favSet.add(f.recipeId);
+  }
+
   const list: RecipeListItem[] = rows.map((r) => ({
     ...r,
-    categories: catsByRecipe.get(r.id) ?? []
+    categories: catsByRecipe.get(r.id) ?? [],
+    isFavorite: favSet.has(r.id)
   }));
 
   // 4) Pills with counts — only categories with at least one recipe in DB

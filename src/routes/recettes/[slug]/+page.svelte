@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatQty } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
+  import FavoriteHeart from '$lib/components/FavoriteHeart.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -58,9 +59,12 @@
   {/if}
 
   <header class="space-y-3 text-center sm:text-left">
-    <h1 class="text-3xl font-semibold leading-tight text-gusto-cream">
-      {data.recipe.nameFr}
-    </h1>
+    <div class="flex items-start justify-center gap-3 sm:justify-start">
+      <h1 class="text-3xl font-semibold leading-tight text-gusto-cream">
+        {data.recipe.nameFr}
+      </h1>
+      <FavoriteHeart kind="recipe" id={data.recipe.id} favorited={data.isFavorite} size="lg" />
+    </div>
 
     <div class="flex flex-wrap items-center justify-center gap-1.5 text-xs sm:justify-start">
       {#each data.categories as cat (cat.slug)}
@@ -175,14 +179,24 @@
 
     <ul class="divide-y divide-gusto-green-100 rounded-lg bg-gusto-cream">
       {#each data.ingredients as ing (ing.id)}
-        <li class="px-4 py-2.5 text-sm">
-          {#if ing.quantity != null}
-            <span class="font-medium text-gusto-green-900">
-              {formatQty(ing.quantity * factor)}{ing.unit ? ' ' + ing.unit : ''}
-            </span>
-            <span class="text-gusto-green-700">{ing.ingredientHint}</span>
-          {:else}
-            <span class="text-gusto-green-700">{ing.rawText}</span>
+        <li class="flex items-center gap-2 px-4 py-2.5 text-sm">
+          <span class="min-w-0 flex-1">
+            {#if ing.quantity != null}
+              <span class="font-medium text-gusto-green-900">
+                {formatQty(ing.quantity * factor)}{ing.unit ? ' ' + ing.unit : ''}
+              </span>
+              <span class="text-gusto-green-700">{ing.ingredientHint}</span>
+            {:else}
+              <span class="text-gusto-green-700">{ing.rawText}</span>
+            {/if}
+          </span>
+          {#if ing.ingredientId != null}
+            <FavoriteHeart
+              kind="ingredient"
+              id={ing.ingredientId}
+              favorited={ing.isFavorite}
+              size="sm"
+            />
           {/if}
         </li>
       {/each}

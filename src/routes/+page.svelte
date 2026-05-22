@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatMinutes } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
+  import FavoriteHeart from '$lib/components/FavoriteHeart.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -76,6 +77,14 @@
                     >
                   </div>
                 {/if}
+                <div class="absolute left-2 top-2">
+                  <FavoriteHeart
+                    kind="recipe"
+                    id={recipe.id}
+                    favorited={recipe.isFavorite}
+                    variant="overlay"
+                  />
+                </div>
               </div>
               <div class="space-y-1 p-3">
                 <h3 class="text-base font-normal leading-snug text-gusto-green-900">
