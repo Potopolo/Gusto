@@ -51,6 +51,15 @@
   }
 
   // --- Manual add form ---
+  // Collapsed category sections (default = all expanded)
+  let collapsedCategories = $state<Set<string>>(new Set());
+  function toggleCategory(slug: string) {
+    const next = new Set(collapsedCategories);
+    if (next.has(slug)) next.delete(slug);
+    else next.add(slug);
+    collapsedCategories = next;
+  }
+
   let addOpen = $state(false);
   let addName = $state('');
   let addQty = $state('');
@@ -138,11 +147,28 @@
   {:else}
     <div class="space-y-4">
       {#each grouped as group (group.slug)}
+        {@const isCollapsed = collapsedCategories.has(group.slug)}
         <section class="rounded-lg bg-gusto-cream p-4">
-          <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gusto-green-700/70">
-            {group.label}
-            <span class="ml-1 font-normal text-gusto-green-700/50">({group.items.length})</span>
-          </h2>
+          <button
+            type="button"
+            onclick={() => toggleCategory(group.slug)}
+            aria-expanded={!isCollapsed}
+            class="-mx-1 mb-3 flex w-[calc(100%+0.5rem)] items-center gap-2 rounded-md px-1 text-left transition hover:bg-gusto-green-50"
+          >
+            <span
+              aria-hidden="true"
+              class="text-[10px] text-gusto-green-700/60 transition-transform {isCollapsed
+                ? ''
+                : 'rotate-90'}"
+            >
+              ▶
+            </span>
+            <h2 class="flex-1 text-xs font-semibold uppercase tracking-wide text-gusto-green-700/70">
+              {group.label}
+              <span class="ml-1 font-normal text-gusto-green-700/50">({group.items.length})</span>
+            </h2>
+          </button>
+          {#if !isCollapsed}
           <ul class="space-y-1">
             {#each group.items as it (it.id)}
               {@const isChecked = checked.has(it.id)}
@@ -213,6 +239,7 @@
               </li>
             {/each}
           </ul>
+          {/if}
         </section>
       {/each}
     </div>

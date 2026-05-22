@@ -3,18 +3,6 @@
   import type { PageData, ActionData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
-
-  const activityOptions = [
-    { value: 'sedentary', label: 'Sédentaire' },
-    { value: 'light', label: 'Légère' },
-    { value: 'moderate', label: 'Modérée' },
-    { value: 'active', label: 'Active' }
-  ];
-
-  const goalOptions = [
-    { value: 'loss', label: 'Perte de poids durable' },
-    { value: 'maintain', label: 'Maintien' }
-  ];
 </script>
 
 <section class="space-y-8">
@@ -29,77 +17,16 @@
     use:enhance
     class="space-y-6 rounded-lg bg-gusto-cream p-6"
   >
-    <div class="grid gap-4 sm:grid-cols-2">
-      <label class="block text-sm">
-        <span class="mb-1 block font-medium text-gusto-green-700">Nom affiché</span>
-        <input
-          name="labelFr"
-          type="text"
-          required
-          value={data.currentUser?.labelFr ?? ''}
-          class="block w-full rounded-md text-gusto-green-900 shadow-sm"
-        />
-      </label>
-
-      <label class="block text-sm">
-        <span class="mb-1 block font-medium text-gusto-green-700">Âge</span>
-        <input
-          name="age"
-          type="number"
-          min="1"
-          max="120"
-          value={data.profile.age ?? ''}
-          class="block w-full rounded-md text-gusto-green-900 shadow-sm"
-        />
-      </label>
-
-      <label class="block text-sm">
-        <span class="mb-1 block font-medium text-gusto-green-700">Taille (cm)</span>
-        <input
-          name="heightCm"
-          type="number"
-          min="50"
-          max="250"
-          step="0.1"
-          value={data.profile.heightCm ?? ''}
-          class="block w-full rounded-md text-gusto-green-900 shadow-sm"
-        />
-      </label>
-
-      <label class="block text-sm">
-        <span class="mb-1 block font-medium text-gusto-green-700">Niveau d'activité</span>
-        <select name="activityLevel" class="block w-full rounded-md text-gusto-green-900 shadow-sm">
-          {#each activityOptions as opt (opt.value)}
-            <option value={opt.value} selected={data.profile.activityLevel === opt.value}>
-              {opt.label}
-            </option>
-          {/each}
-        </select>
-      </label>
-
-      <label class="block text-sm">
-        <span class="mb-1 block font-medium text-gusto-green-700">Phase d'objectif</span>
-        <select name="goalPhase" class="block w-full rounded-md text-gusto-green-900 shadow-sm">
-          {#each goalOptions as opt (opt.value)}
-            <option value={opt.value} selected={data.profile.goalPhase === opt.value}>
-              {opt.label}
-            </option>
-          {/each}
-        </select>
-      </label>
-
-      <label class="block text-sm">
-        <span class="mb-1 block font-medium text-gusto-green-700">Objectif points / jour</span>
-        <input
-          name="dailyPointsTarget"
-          type="number"
-          min="0"
-          max="60"
-          value={data.profile.dailyPointsTarget}
-          class="block w-full rounded-md text-gusto-green-900 shadow-sm"
-        />
-      </label>
-    </div>
+    <label class="block text-sm">
+      <span class="mb-1 block font-medium text-gusto-green-700">Nom affiché</span>
+      <input
+        name="labelFr"
+        type="text"
+        required
+        value={data.currentUser?.labelFr ?? ''}
+        class="block w-full rounded-md text-gusto-green-900 shadow-sm"
+      />
+    </label>
 
     {#if form?.error}
       <p class="text-sm text-gusto-pink-700">{form.error}</p>

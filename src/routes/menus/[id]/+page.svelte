@@ -81,6 +81,16 @@
 
   let adding = $state(false);
 
+  // Per-day collapse state. Tracks the date keys that are CURRENTLY collapsed
+  // (default = empty = everything expanded).
+  let collapsedDays = $state<Set<string>>(new Set());
+  function toggleDay(dateKey: string) {
+    const next = new Set(collapsedDays);
+    if (next.has(dateKey)) next.delete(dateKey);
+    else next.add(dateKey);
+    collapsedDays = next;
+  }
+
   // Custom-modal flow for the destructive "Re-générer" action
   let regenerateAsking = $state(false);
   let regenerating = $state(false);
@@ -478,15 +488,31 @@
       {@const dayTotal = dayTotalPoints(daySlots)}
       {@const mainSlots = daySlots.filter((r) => isMainMeal(r.slot.mealType))}
       {@const extraSlots = daySlots.filter((r) => !isMainMeal(r.slot.mealType))}
+      {@const isCollapsed = collapsedDays.has(dateKey)}
       <section class="rounded-lg bg-gusto-cream p-3 sm:p-4">
-        <header class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="text-base font-semibold text-gusto-green-900 sm:text-lg">
-            {format(new Date(dateKey), 'EEEE d MMMM', { locale: fr })}
-          </h2>
+        <button
+          type="button"
+          onclick={() => toggleDay(dateKey)}
+          aria-expanded={!isCollapsed}
+          class="-mx-1 mb-3 flex w-[calc(100%+0.5rem)] flex-wrap items-baseline justify-between gap-2 rounded-md px-1 text-left transition hover:bg-gusto-green-50"
+        >
+          <span class="flex items-baseline gap-2">
+            <span
+              aria-hidden="true"
+              class="text-xs text-gusto-green-700/60 transition-transform {isCollapsed
+                ? ''
+                : 'rotate-90'}"
+            >
+              ▶
+            </span>
+            <span class="text-base font-semibold text-gusto-green-900 sm:text-lg">
+              {format(new Date(dateKey), 'EEEE d MMMM', { locale: fr })}
+            </span>
+          </span>
           {#if dayTotal > 0}
             <span class="text-xs text-gusto-green-700/70">Total : {dayTotal} pts</span>
           {/if}
-        </header>
+        </button>
 
         {#snippet slotItem(row: SlotRow)}
           {@const { slot, recipe } = row}
@@ -759,29 +785,31 @@
               </li>
         {/snippet}
 
-        {#if mainSlots.length === 0 && extraSlots.length === 0}
-          <p class="text-xs italic text-gusto-green-700/70">Pas de plat prévu ce jour.</p>
-        {/if}
+        {#if !isCollapsed}
+          {#if mainSlots.length === 0 && extraSlots.length === 0}
+            <p class="text-xs italic text-gusto-green-700/70">Pas de plat prévu ce jour.</p>
+          {/if}
 
-        {#if mainSlots.length}
-          <ul class="space-y-2">
-            {#each mainSlots as row (row.slot.id)}
-              {@render slotItem(row)}
-            {/each}
-          </ul>
-        {/if}
-
-        {#if extraSlots.length}
-          <div class="mt-3 border-t border-gusto-green-100 pt-3">
-            <p class="mb-2 text-[10px] uppercase tracking-wide text-gusto-green-700/70">
-              Plats en plus
-            </p>
+          {#if mainSlots.length}
             <ul class="space-y-2">
-              {#each extraSlots as row (row.slot.id)}
+              {#each mainSlots as row (row.slot.id)}
                 {@render slotItem(row)}
               {/each}
             </ul>
-          </div>
+          {/if}
+
+          {#if extraSlots.length}
+            <div class="mt-3 border-t border-gusto-green-100 pt-3">
+              <p class="mb-2 text-[10px] uppercase tracking-wide text-gusto-green-700/70">
+                Plats en plus
+              </p>
+              <ul class="space-y-2">
+                {#each extraSlots as row (row.slot.id)}
+                  {@render slotItem(row)}
+                {/each}
+              </ul>
+            </div>
+          {/if}
         {/if}
       </section>
     {/each}
