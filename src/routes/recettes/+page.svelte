@@ -48,7 +48,7 @@
     </a>
   </header>
 
-  <form method="get" class="flex gap-2">
+  <form method="get" class="flex gap-4">
     <input
       type="search"
       name="q"
@@ -59,60 +59,70 @@
     {#if data.selectedCats.length}
       <input type="hidden" name="cats" value={data.selectedCats.join(',')} />
     {/if}
-    {#if hasFilters}
-      <a
-        href="/recettes?cats="
-        class="rounded-md border border-gusto-cream/30 bg-transparent px-3 py-2 text-sm text-gusto-cream hover:bg-gusto-cream/10"
-      >
-        Effacer
-      </a>
-    {/if}
     <button
       type="submit"
-      class="rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+      aria-label="Chercher"
+      title="Chercher"
+      class="flex flex-none items-center justify-center rounded-md bg-gusto-pink px-3.5 text-gusto-green-900 hover:bg-gusto-pink-200"
     >
-      Chercher
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="h-5 w-5"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
     </button>
   </form>
 
   {#if data.groupedPills.length}
-    <div class="space-y-2.5">
-      <button
-        type="button"
-        onclick={() => (filtersOpen = !filtersOpen)}
-        aria-expanded={filtersOpen}
-        class="flex items-center gap-2 text-xs uppercase tracking-wide text-gusto-cream/70 hover:text-gusto-cream"
-      >
-        <span
-          aria-hidden="true"
-          class="text-[10px] transition-transform {filtersOpen ? 'rotate-90' : ''}"
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          onclick={() => (filtersOpen = !filtersOpen)}
+          aria-expanded={filtersOpen}
+          class="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-gusto-cream/70 hover:text-gusto-cream"
         >
-          ▶
-        </span>
-        <span>Filtres</span>
-        {#if data.selectedCats.length > 0}
-          <span class="rounded-full bg-gusto-pink px-1.5 py-0.5 text-[10px] font-semibold text-gusto-green-900">
-            {data.selectedCats.length}
+          <span
+            aria-hidden="true"
+            class="text-[9px] transition-transform {filtersOpen ? 'rotate-90' : ''}"
+          >
+            ▶
           </span>
+          <span>Filtres</span>
+          {#if data.selectedCats.length > 0}
+            <span class="rounded-full bg-gusto-pink px-1.5 py-0.5 text-[9px] font-semibold text-gusto-green-900">
+              {data.selectedCats.length}
+            </span>
+          {/if}
+        </button>
+        {#if filtersOpen && data.selectedCats.length > 0}
+          <a
+            href={buildUrl(data.q, [])}
+            class="text-[11px] text-gusto-cream/60 underline-offset-2 hover:text-gusto-cream hover:underline"
+          >
+            Tout désélectionner
+          </a>
         {/if}
-      </button>
+      </div>
 
       {#if filtersOpen}
-        {#if data.selectedCats.length > 0}
-          <p class="text-xs text-gusto-cream/70">
-            <a href={buildUrl(data.q, [])} class="underline hover:text-gusto-cream"
-              >Tout désélectionner</a
-            >
-          </p>
-        {/if}
-        <!-- First row: virtual filter dimension derived from
-             points_per_serving. Passive pills look like the rest of the
-             list; active pills pick up the band colour from the
-             points-badge scale (green / yellow / orange / brown). -->
-        <div class="flex flex-wrap items-baseline gap-2">
-          <span class="w-20 flex-none text-xs uppercase tracking-wide text-gusto-cream/60">
-            Plaisir
-          </span>
+        <!-- Virtual "Plaisir" group first, derived from points_per_serving. -->
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] uppercase tracking-wide text-gusto-cream/60">
+              Plaisir
+            </span>
+            <div class="h-px flex-1 bg-gusto-cream/15" aria-hidden="true"></div>
+          </div>
           <div class="flex flex-wrap gap-1.5">
             {#each INTENSITY_LEVELS as lvl (lvl.slug)}
               {@const stats = data.intensityPills.find((p) => p.slug === lvl.slug)}
@@ -120,34 +130,35 @@
               <a
                 href={urlWithToggledCat(lvl.slug)}
                 aria-current={active ? 'true' : undefined}
-                class="rounded-full px-3 py-1 text-xs font-medium transition {active
+                class="rounded-full px-2.5 py-0.5 text-[11px] font-medium transition {active
                   ? lvl.pillActiveClass
                   : lvl.pillClass}"
               >
-                {lvl.label}
-                <span class="ml-1 opacity-60">{stats?.count ?? 0}</span>
+                {lvl.label}<span class="ml-1 opacity-60">{stats?.count ?? 0}</span>
               </a>
             {/each}
           </div>
         </div>
 
         {#each data.groupedPills as group (group.kind)}
-          <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-20 flex-none text-xs uppercase tracking-wide text-gusto-cream/60">
-              {group.labelFr}
-            </span>
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] uppercase tracking-wide text-gusto-cream/60">
+                {group.labelFr}
+              </span>
+              <div class="h-px flex-1 bg-gusto-cream/15" aria-hidden="true"></div>
+            </div>
             <div class="flex flex-wrap gap-1.5">
               {#each group.pills as pill (pill.slug)}
                 {@const active = data.selectedCats.includes(pill.slug)}
                 <a
                   href={urlWithToggledCat(pill.slug)}
                   aria-current={active ? 'true' : undefined}
-                  class="rounded-full px-3 py-1 text-xs font-medium transition {active
+                  class="rounded-full px-2.5 py-0.5 text-[11px] font-medium transition {active
                     ? 'bg-gusto-pink text-gusto-green-900'
                     : 'bg-gusto-cream/10 text-gusto-cream hover:bg-gusto-cream/20'}"
                 >
-                  {pill.nameFr}
-                  <span class="ml-1 opacity-60">{pill.count}</span>
+                  {pill.nameFr}<span class="ml-1 opacity-60">{pill.count}</span>
                 </a>
               {/each}
             </div>
