@@ -27,12 +27,20 @@ const UNIT_GRAMS: Record<string, number> = {
 
 const DEFAULT_PIECE_G = 100;
 
-/** Convert (quantity, unit) to grams. Returns null when quantity is missing. */
+/** Convert (quantity, unit) to grams. Returns null when the conversion is
+ *  ambiguous (most often a parser miss like '30 + 20g' → qty=30, unit=null,
+ *  which the legacy code multiplied by 100g and produced 3 kg of parmesan). */
 export function toGrams(quantity: number | null, unit: string | null): number | null {
   if (quantity == null) return null;
-  if (unit == null) return quantity * DEFAULT_PIECE_G;
+  if (unit == null) {
+    // Small numbers are usually piece counts ('1 oignon', '2 carottes')
+    // — extrapolate to ~100g per piece. Larger raw integers are almost
+    // certainly a missed gram suffix; we'd rather drop the line than
+    // inflate the recipe with 3 kg of cheese.
+    return quantity > 4 ? null : quantity * DEFAULT_PIECE_G;
+  }
   const factor = UNIT_GRAMS[unit];
-  if (factor == null) return quantity * DEFAULT_PIECE_G;
+  if (factor == null) return quantity > 4 ? null : quantity * DEFAULT_PIECE_G;
   return quantity * factor;
 }
 

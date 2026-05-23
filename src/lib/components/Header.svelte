@@ -20,8 +20,17 @@
   }
 </script>
 
-<header class="sticky top-0 z-10 bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)]">
-  <div class="mx-auto max-w-4xl px-4">
+<header class="sticky top-0 z-10 overflow-hidden bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)]">
+  <!-- DA decorative pattern overlay. Very low opacity so it reads as
+       texture rather than imagery; a CSS mask fades it slightly near
+       the top edge for a soft "diffuse near the menu" feel. -->
+  <div
+    class="pointer-events-none absolute inset-0 bg-[url('/patterns/pattern.svg')] bg-cover bg-center opacity-[0.07]"
+    style="-webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,1) 35%, rgba(0,0,0,1) 100%); mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,1) 35%, rgba(0,0,0,1) 100%);"
+    aria-hidden="true"
+  ></div>
+
+  <div class="relative mx-auto max-w-4xl px-4">
     <!-- Top row.
          Mobile: logo centered (only child shown here, icon nav is below).
          Desktop: flex with justify-between so logo sits flush-left, settings

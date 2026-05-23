@@ -19,6 +19,7 @@
     "import:ciqual": "tsx --env-file=.env.local src/lib/server/ciqual/import.ts",
     "rematch": "tsx --env-file=.env.local src/lib/server/ciqual/rematch.ts",
     "compute:nutrition": "tsx --env-file=.env.local src/lib/server/ciqual/compute.ts",
+    "normalize:servings": "tsx --env-file=.env.local scripts/normalize-servings.ts",
     "estimate:points": "tsx --env-file=.env.local scripts/estimate-missing-points.ts",
     "reparse": "tsx --env-file=.env.local src/lib/server/scraper/reparse.ts"
   },
