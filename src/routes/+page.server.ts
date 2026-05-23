@@ -96,7 +96,29 @@ export const load: PageServerLoad = async ({ locals }) => {
     })
     .from(recipes);
 
-  const seasonOk = (id: number) => inSeason.has(id) || !hasAnySeason.has(id);
+  // Some occasion categories (e.g. 'noel') are season-locked. Exclude recipes
+  // tagged with an off-season occasion regardless of their season tags.
+  const OFF_SEASON_OCCASIONS_FOR: Record<string, string[]> = {
+    printemps: ['noel'],
+    ete: ['noel'],
+    automne: ['noel'],
+    hiver: []
+  };
+  const offSeasonOccasions = new Set(OFF_SEASON_OCCASIONS_FOR[currentSeason] ?? []);
+  const offSeasonRecipeIds = new Set<number>();
+  if (offSeasonOccasions.size > 0) {
+    for (const [recipeId, slugs] of slugsByRecipe) {
+      for (const s of slugs) {
+        if (offSeasonOccasions.has(s)) {
+          offSeasonRecipeIds.add(recipeId);
+          break;
+        }
+      }
+    }
+  }
+
+  const seasonOk = (id: number) =>
+    !offSeasonRecipeIds.has(id) && (inSeason.has(id) || !hasAnySeason.has(id));
 
   // 5) Bucket eligible recipes
   const buckets: Record<Bucket, typeof allRows> = { plat: [], apero: [], dessert: [] };

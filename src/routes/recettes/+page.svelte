@@ -6,6 +6,9 @@
 
   let { data }: { data: PageData } = $props();
   let searchInput = $state(data.q);
+  // Filter block collapse state — collapsed by default if no filters are active,
+  // expanded if at least one is selected (so the user always sees what's active).
+  let filtersOpen = $state(data.selectedCats.length > 0);
 
   function urlWithToggledCat(slug: string): string {
     const next = data.selectedCats.includes(slug)
@@ -57,7 +60,7 @@
     {/if}
     {#if hasFilters}
       <a
-        href="/recettes"
+        href="/recettes?cats="
         class="rounded-md border border-gusto-cream/30 bg-transparent px-3 py-2 text-sm text-gusto-cream hover:bg-gusto-cream/10"
       >
         Effacer
@@ -73,38 +76,57 @@
 
   {#if data.groupedPills.length}
     <div class="space-y-2.5">
-      {#if data.selectedCats.length > 0}
-        <p class="text-xs text-gusto-cream/70">
-          Filtre actif : {data.selectedCats.length} catégorie{data.selectedCats.length > 1
-            ? 's'
-            : ''} —
-          <a href={buildUrl(data.q, [])} class="underline hover:text-gusto-cream"
-            >tout désélectionner</a
-          >
-        </p>
-      {/if}
-      {#each data.groupedPills as group (group.kind)}
-        <div class="flex flex-wrap items-baseline gap-2">
-          <span class="w-20 flex-none text-xs uppercase tracking-wide text-gusto-cream/60">
-            {group.labelFr}
+      <button
+        type="button"
+        onclick={() => (filtersOpen = !filtersOpen)}
+        aria-expanded={filtersOpen}
+        class="flex items-center gap-2 text-xs uppercase tracking-wide text-gusto-cream/70 hover:text-gusto-cream"
+      >
+        <span
+          aria-hidden="true"
+          class="text-[10px] transition-transform {filtersOpen ? 'rotate-90' : ''}"
+        >
+          ▶
+        </span>
+        <span>Filtres</span>
+        {#if data.selectedCats.length > 0}
+          <span class="rounded-full bg-gusto-pink px-1.5 py-0.5 text-[10px] font-semibold text-gusto-green-900">
+            {data.selectedCats.length}
           </span>
-          <div class="flex flex-wrap gap-1.5">
-            {#each group.pills as pill (pill.slug)}
-              {@const active = data.selectedCats.includes(pill.slug)}
-              <a
-                href={urlWithToggledCat(pill.slug)}
-                aria-current={active ? 'true' : undefined}
-                class="rounded-full px-3 py-1 text-xs font-medium transition {active
-                  ? 'bg-gusto-pink text-gusto-green-900'
-                  : 'bg-gusto-cream/10 text-gusto-cream hover:bg-gusto-cream/20'}"
-              >
-                {pill.nameFr}
-                <span class="ml-1 opacity-60">{pill.count}</span>
-              </a>
-            {/each}
+        {/if}
+      </button>
+
+      {#if filtersOpen}
+        {#if data.selectedCats.length > 0}
+          <p class="text-xs text-gusto-cream/70">
+            <a href={buildUrl(data.q, [])} class="underline hover:text-gusto-cream"
+              >Tout désélectionner</a
+            >
+          </p>
+        {/if}
+        {#each data.groupedPills as group (group.kind)}
+          <div class="flex flex-wrap items-baseline gap-2">
+            <span class="w-20 flex-none text-xs uppercase tracking-wide text-gusto-cream/60">
+              {group.labelFr}
+            </span>
+            <div class="flex flex-wrap gap-1.5">
+              {#each group.pills as pill (pill.slug)}
+                {@const active = data.selectedCats.includes(pill.slug)}
+                <a
+                  href={urlWithToggledCat(pill.slug)}
+                  aria-current={active ? 'true' : undefined}
+                  class="rounded-full px-3 py-1 text-xs font-medium transition {active
+                    ? 'bg-gusto-pink text-gusto-green-900'
+                    : 'bg-gusto-cream/10 text-gusto-cream hover:bg-gusto-cream/20'}"
+                >
+                  {pill.nameFr}
+                  <span class="ml-1 opacity-60">{pill.count}</span>
+                </a>
+              {/each}
+            </div>
           </div>
-        </div>
-      {/each}
+        {/each}
+      {/if}
     </div>
   {/if}
 

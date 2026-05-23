@@ -26,10 +26,10 @@
       Bonjour {data.currentUser?.labelFr ?? ''} !
     </h1>
     <p class="text-gusto-cream/80">
-      Buffet d'idées de l'apéro au dessert …
+      Buffet d'idées de l'apéro au dessert
       <br />
       <span class="text-sm italic text-gusto-cream/60">
-        (à picorer sans modération !)
+        (à picorer sans modération)
       </span>
     </p>
   </header>

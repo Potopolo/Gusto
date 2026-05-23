@@ -69,6 +69,24 @@ export async function generateMenu(opts: GenerateOpts): Promise<GeneratedSlot[]>
     .where(eq(categories.kind, 'saison'));
   const hasAnySeason = new Set(anySeasonRows.map((r) => r.recipeId));
 
+  // Season-locked occasions: 'noel' is winter-only — exclude from spring/summer/fall.
+  const OFF_SEASON_OCCASIONS_FOR: Record<string, string[]> = {
+    printemps: ['noel'],
+    ete: ['noel'],
+    automne: ['noel'],
+    hiver: []
+  };
+  const offSlugs = OFF_SEASON_OCCASIONS_FOR[currentSeason ?? ''] ?? [];
+  const offSeasonRecipeIds = new Set<number>();
+  if (offSlugs.length > 0) {
+    const rows = await db
+      .select({ recipeId: recipeCategories.recipeId })
+      .from(recipeCategories)
+      .innerJoin(categories, eq(recipeCategories.categoryId, categories.id))
+      .where(inArray(categories.slug, offSlugs));
+    for (const r of rows) offSeasonRecipeIds.add(r.recipeId);
+  }
+
   // 3) Eligible recipes by points
   const eligibleByPoints = await db
     .select({
@@ -103,6 +121,7 @@ export async function generateMenu(opts: GenerateOpts): Promise<GeneratedSlot[]>
   const isMainMeal = (mealType: string) => mealType === 'déjeuner' || mealType === 'dîner';
 
   const seasonOk = (id: number) => {
+    if (offSeasonRecipeIds.has(id)) return false;
     if (!currentSeason) return true;
     if (inCurrentSeason.has(id)) return true;
     if (!hasAnySeason.has(id)) return true;

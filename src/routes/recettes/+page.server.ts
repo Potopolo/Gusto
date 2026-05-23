@@ -54,9 +54,24 @@ function parseCatsParam(url: URL): string[] {
   return Array.from(out);
 }
 
+const SEASON_BY_MONTH: Record<number, string> = {
+  3: 'printemps', 4: 'printemps', 5: 'printemps',
+  6: 'ete',       7: 'ete',       8: 'ete',
+  9: 'automne',   10: 'automne',  11: 'automne',
+  12: 'hiver',    1: 'hiver',     2: 'hiver'
+};
+
 export const load: PageServerLoad = async ({ url, locals }) => {
   const q = (url.searchParams.get('q') ?? '').trim();
-  const selectedCats = parseCatsParam(url);
+  let selectedCats = parseCatsParam(url);
+
+  // Fresh visit (no query at all) → pre-select the current season. The
+  // user can deselect via Effacer which sets ?cats= explicitly.
+  const isFreshVisit = !url.searchParams.has('cats') && !url.searchParams.has('cat') && !url.searchParams.has('q');
+  if (isFreshVisit) {
+    const currentSeason = SEASON_BY_MONTH[new Date().getMonth() + 1];
+    if (currentSeason) selectedCats = [currentSeason];
+  }
   const userId = locals.currentUser?.id ?? null;
 
   // 1) For multi-category AND filter: get recipe IDs that match EVERY selected slug

@@ -52,6 +52,8 @@ const TAG_TO_SLUGS: Record<string, string[]> = {
   // Équipement
   cookéo: ['cookeo'],
   cookeo: ['cookeo'],
+  'recettes au cookeo': ['cookeo'],
+  'recettes au cookéo': ['cookeo'],
   airfryer: ['airfryer'],
   'air fryer': ['airfryer'],
   "recettes à l'air fryer": ['airfryer'],
