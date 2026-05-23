@@ -21,38 +21,43 @@ export type IntensityLevel = {
   pillActiveClass: string;
 };
 
+// Passive state = same look as every other filter pill (cream-on-cream).
+// Active state takes the band colour from the points-badge scale so the
+// active pill, the active filter and the recipe-badge colours all rhyme.
+const PASSIVE_PILL = 'bg-gusto-cream/10 text-gusto-cream hover:bg-gusto-cream/20';
+
 export const INTENSITY_LEVELS: IntensityLevel[] = [
   {
     slug: 'legere',
     label: 'Légère',
     min: 0,
     max: 5,
-    pillClass: 'bg-gusto-scale-green/30 text-gusto-cream hover:bg-gusto-scale-green/50',
-    pillActiveClass: 'bg-gusto-scale-green text-gusto-green-900 ring-2 ring-gusto-scale-green'
+    pillClass: PASSIVE_PILL,
+    pillActiveClass: 'bg-gusto-scale-green text-gusto-green-900'
   },
   {
     slug: 'equilibree',
     label: 'Équilibrée',
     min: 6,
     max: 12,
-    pillClass: 'bg-gusto-scale-yellow/30 text-gusto-cream hover:bg-gusto-scale-yellow/50',
-    pillActiveClass: 'bg-gusto-scale-yellow text-gusto-green-900 ring-2 ring-gusto-scale-yellow'
+    pillClass: PASSIVE_PILL,
+    pillActiveClass: 'bg-gusto-scale-yellow text-gusto-green-900'
   },
   {
     slug: 'copieuse',
     label: 'Copieuse',
     min: 13,
     max: 22,
-    pillClass: 'bg-gusto-scale-orange/30 text-gusto-cream hover:bg-gusto-scale-orange/50',
-    pillActiveClass: 'bg-gusto-scale-orange text-gusto-cream ring-2 ring-gusto-scale-orange'
+    pillClass: PASSIVE_PILL,
+    pillActiveClass: 'bg-gusto-scale-orange text-gusto-cream'
   },
   {
     slug: 'gourmande',
     label: 'Gourmande',
     min: 23,
     max: 999,
-    pillClass: 'bg-gusto-scale-brown/40 text-gusto-cream hover:bg-gusto-scale-brown/60',
-    pillActiveClass: 'bg-gusto-scale-brown text-gusto-cream ring-2 ring-gusto-scale-brown'
+    pillClass: PASSIVE_PILL,
+    pillActiveClass: 'bg-gusto-scale-brown text-gusto-cream'
   }
 ];
 
