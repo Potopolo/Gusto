@@ -21,12 +21,19 @@
 </script>
 
 <header class="sticky top-0 z-10 overflow-hidden bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)]">
-  <!-- DA decorative pattern overlay. Very low opacity so it reads as
-       texture rather than imagery; a CSS mask fades it slightly near
-       the top edge for a soft "diffuse near the menu" feel. -->
+  <!-- DA decorative pattern overlay. The SVG file is used as a CSS mask
+       so we colour it with a Tailwind text-* class instead of its baked-in
+       dark green (which would be invisible on a dark header bg). The
+       composite-source mask creates the "diffuse near the menu" fade. -->
   <div
-    class="pointer-events-none absolute inset-0 bg-[url('/patterns/pattern.svg')] bg-cover bg-center opacity-[0.07]"
-    style="-webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,1) 35%, rgba(0,0,0,1) 100%); mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,1) 35%, rgba(0,0,0,1) 100%);"
+    class="pointer-events-none absolute inset-0 text-gusto-cream/15"
+    style="background-color: currentColor; -webkit-mask-image: url('/patterns/pattern.svg'); mask-image: url('/patterns/pattern.svg'); -webkit-mask-size: 480px; mask-size: 480px; -webkit-mask-repeat: repeat; mask-repeat: repeat; -webkit-mask-position: center; mask-position: center;"
+    aria-hidden="true"
+  ></div>
+  <!-- Second pass: a smooth top-edge softener that blurs the pattern
+       lightly near the menu without affecting the lower band. -->
+  <div
+    class="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-gusto-green to-transparent"
     aria-hidden="true"
   ></div>
 

@@ -47,4 +47,56 @@
       Enregistrer
     </button>
   </form>
+
+  <section class="space-y-3 rounded-lg border border-gusto-cream/15 p-5 text-sm text-gusto-cream/85">
+    <header class="space-y-1">
+      <h2 class="text-lg font-semibold text-gusto-cream">À propos des points</h2>
+      <p class="text-xs text-gusto-cream/60">
+        Tous les chiffres affichés dans Gusto sont des <em>estimations</em> — utiles pour comparer
+        deux recettes entre elles, pas pour un comptage diététique strict.
+      </p>
+    </header>
+
+    <p>
+      Le score est inspiré du <strong>WW SmartPoints</strong>. Pour chaque recette,
+      Gusto agrège la nutrition des ingrédients via la base <a
+        href="https://ciqual.anses.fr/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="underline hover:text-gusto-cream">CIQUAL 2025 (ANSES)</a
+      >, puis applique cette formule :
+    </p>
+
+    <pre class="overflow-x-auto rounded-md bg-gusto-green-900/40 p-3 font-mono text-[11px] leading-relaxed text-gusto-cream/90">
+points = kcal / 80
+       + sat_fat_g × 0,15
+       + sugar_g   × 0,06
+       − protein_g × 0,05
+       − fiber_g   × 0,05</pre>
+
+    <p>
+      Les <strong>protéines</strong> et les <strong>fibres</strong> sont des crédits (ils
+      réduisent le total), les <strong>graisses saturées</strong> et le <strong>sucre</strong> le font monter.
+      Le résultat est arrondi entre 0 et 60 pts et toujours rapporté à
+      <strong>une portion</strong> (ou une part, une tranche…).
+    </p>
+
+    <div class="rounded-md bg-gusto-cream/5 p-3 text-xs text-gusto-cream/75">
+      <p class="mb-1 font-semibold text-gusto-cream">Pourquoi c'est une estimation ?</p>
+      <ul class="list-disc space-y-1 pl-4">
+        <li>
+          Les ingrédients d'Amandine Cooking sont matchés à CIQUAL par similarité de nom
+          (taux de matching ~96 %). Les rares lignes non matchées ne sont pas comptées.
+        </li>
+        <li>
+          Quand le matching ne couvre pas assez d'ingrédients (≥ 50 %), le score
+          provient d'un estimateur à base de mots-clés (catégorie + nom de la recette).
+        </li>
+        <li>
+          Les quantités sont parsées depuis du texte libre — parfois « 2 oignons » est
+          interprété comme « 2 × 100 g d'oignon », ce qui peut décaler le total.
+        </li>
+      </ul>
+    </div>
+  </section>
 </section>

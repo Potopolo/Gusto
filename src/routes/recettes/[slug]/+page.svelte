@@ -28,11 +28,9 @@
   }
 
   let perServing = $derived(data.recipe.nutritionPerServing?.per_serving ?? null);
-  let scaledPoints = $derived(
-    data.recipe.pointsPerServing != null
-      ? Math.round(data.recipe.pointsPerServing * factor)
-      : null
-  );
+  // Points are PER unit — bumping servings doesn't change "how rich one
+  // portion is", so we display the recipe's stored points_per_serving as-is.
+  let scaledPoints = $derived(data.recipe.pointsPerServing ?? null);
   let badgeColors = $derived(scaledPoints != null ? pointsColor(scaledPoints) : null);
   let unitLabel = $derived(singularizeUnit(data.recipe.servingsUnit));
 
