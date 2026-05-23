@@ -5,7 +5,8 @@ import {
   categories,
   favoriteRecipes
 } from '$lib/server/db/schema';
-import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
+import { and, between, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { INTENSITY_LEVELS, isIntensitySlug } from '$lib/intensity';
 import type { PageServerLoad } from './$types';
 
 export type RecipeListItem = {
@@ -74,9 +75,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   }
   const userId = locals.currentUser?.id ?? null;
 
-  // 1) For multi-category AND filter: get recipe IDs that match EVERY selected slug
+  // Split selected slugs: real DB categories vs virtual intensity buckets.
+  const selectedIntensities = selectedCats.filter(isIntensitySlug);
+  const realSelectedCats = selectedCats.filter((s) => !isIntensitySlug(s));
+
+  // 1) For multi-category AND filter: get recipe IDs that match EVERY real slug
   let recipeIdsForCats: number[] | null = null;
-  if (selectedCats.length > 0) {
+  if (realSelectedCats.length > 0) {
     const matchingRows = await db
       .select({
         recipeId: recipeCategories.recipeId,
@@ -84,7 +89,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
       })
       .from(recipeCategories)
       .innerJoin(categories, eq(recipeCategories.categoryId, categories.id))
-      .where(inArray(categories.slug, selectedCats));
+      .where(inArray(categories.slug, realSelectedCats));
 
     // Count distinct matched slugs per recipe
     const slugsByRecipe = new Map<number, Set<string>>();
@@ -95,15 +100,27 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     }
     recipeIdsForCats = [];
     for (const [recipeId, slugs] of slugsByRecipe) {
-      if (slugs.size === selectedCats.length) recipeIdsForCats.push(recipeId);
+      if (slugs.size === realSelectedCats.length) recipeIdsForCats.push(recipeId);
     }
     if (recipeIdsForCats.length === 0) recipeIdsForCats = [-1];
   }
 
+  // Intensity buckets → OR of point-range predicates
+  const intensityRangePredicate =
+    selectedIntensities.length > 0
+      ? or(
+          ...selectedIntensities.map((slug) => {
+            const lvl = INTENSITY_LEVELS.find((l) => l.slug === slug)!;
+            return between(recipes.pointsPerServing, lvl.min, lvl.max);
+          })
+        )
+      : undefined;
+
   // 2) Build the recipe query with combined filters
   const conditions = [
     q ? like(recipes.nameFr, `%${q}%`) : undefined,
-    recipeIdsForCats ? inArray(recipes.id, recipeIdsForCats) : undefined
+    recipeIdsForCats ? inArray(recipes.id, recipeIdsForCats) : undefined,
+    intensityRangePredicate
   ].filter(Boolean);
 
   const whereClause =
@@ -193,5 +210,27 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     pills: allPills.filter((p) => p.kind === kind)
   })).filter((g) => g.pills.length > 0);
 
-  return { recipes: list, q, selectedCats, groupedPills };
+  // Intensity pills — counts derived from points_per_serving on the recipes table.
+  // These are a virtual filter dimension, not real categories.
+  const intensityCountsRows = await db
+    .select({
+      pts: recipes.pointsPerServing,
+      n: sql<number>`count(*)`
+    })
+    .from(recipes)
+    .where(sql`${recipes.pointsPerServing} IS NOT NULL`)
+    .groupBy(recipes.pointsPerServing);
+  const ptsCount = new Map<number, number>();
+  for (const r of intensityCountsRows) {
+    if (r.pts != null) ptsCount.set(r.pts, Number(r.n));
+  }
+  const intensityPills = INTENSITY_LEVELS.map((lvl) => {
+    let count = 0;
+    for (const [pts, n] of ptsCount) {
+      if (pts >= lvl.min && pts <= lvl.max) count += n;
+    }
+    return { slug: lvl.slug, label: lvl.label, count };
+  });
+
+  return { recipes: list, q, selectedCats, groupedPills, intensityPills };
 };

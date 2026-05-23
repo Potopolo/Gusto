@@ -2,6 +2,7 @@
   import { formatMinutes } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
   import FavoriteHeart from '$lib/components/FavoriteHeart.svelte';
+  import { INTENSITY_LEVELS } from '$lib/intensity';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -126,6 +127,31 @@
             </div>
           </div>
         {/each}
+
+        <!-- Virtual filter dimension: intensity buckets derived from
+             points_per_serving. Pill colour mirrors the points-badge
+             scale so a green pill = a green badge = légère. -->
+        <div class="flex flex-wrap items-baseline gap-2">
+          <span class="w-20 flex-none text-xs uppercase tracking-wide text-gusto-cream/60">
+            Intensité
+          </span>
+          <div class="flex flex-wrap gap-1.5">
+            {#each INTENSITY_LEVELS as lvl (lvl.slug)}
+              {@const stats = data.intensityPills.find((p) => p.slug === lvl.slug)}
+              {@const active = data.selectedCats.includes(lvl.slug)}
+              <a
+                href={urlWithToggledCat(lvl.slug)}
+                aria-current={active ? 'true' : undefined}
+                class="rounded-full px-3 py-1 text-xs font-medium transition {active
+                  ? lvl.pillActiveClass
+                  : lvl.pillClass}"
+              >
+                {lvl.label}
+                <span class="ml-1 opacity-60">{stats?.count ?? 0}</span>
+              </a>
+            {/each}
+          </div>
+        </div>
       {/if}
     </div>
   {/if}
