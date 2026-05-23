@@ -112,6 +112,12 @@
                       {singularizeUnit(recipe.servingsUnit)}{recipe.servings > 1 ? 's' : ''}
                     </span>
                   {/if}
+                  {#if recipe.pointsPerServing != null}
+                    <span aria-hidden="true">·</span>
+                    <span class="font-medium text-gusto-green-900">
+                      {recipe.pointsPerServing} pts/{singularizeUnit(recipe.servingsUnit)}
+                    </span>
+                  {/if}
                 </p>
               </div>
             </a>
