@@ -1,6 +1,8 @@
 <script lang="ts">
   import '../app.css';
   import Header from '$lib/components/Header.svelte';
+  import SettingsModal from '$lib/components/SettingsModal.svelte';
+  import { settingsOpen } from '$lib/stores/settings';
   import type { LayoutData } from './$types';
 
   let { data, children }: { data: LayoutData; children: any } = $props();
@@ -23,6 +25,12 @@
     "
     aria-hidden="true"
   ></div>
+
+  <SettingsModal
+    open={$settingsOpen}
+    currentLabel={data.currentUser.labelFr}
+    onClose={() => settingsOpen.set(false)}
+  />
 {/if}
 
 <main class="mx-auto max-w-4xl px-4 py-8">

@@ -6,11 +6,27 @@ import {
   recipeCategories,
   categories,
   favoriteRecipes,
-  favoriteIngredients
+  favoriteIngredients,
+  menus,
+  menuSlots
 } from '$lib/server/db/schema';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { error } from '@sveltejs/kit';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { error, fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+
+const ALLOWED_MEAL_TYPES = [
+  'petit-déj',
+  'déjeuner',
+  'goûter',
+  'apéro',
+  'dîner',
+  'dessert',
+  'collation'
+] as const;
+type MealType = (typeof ALLOWED_MEAL_TYPES)[number];
+function isValidMealType(s: string): s is MealType {
+  return (ALLOWED_MEAL_TYPES as readonly string[]).includes(s);
+}
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   const [recipe] = await db
@@ -86,12 +102,73 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   // Drop the heavy raw HTML cache from client payload
   const { rawHtmlCache: _drop, ...recipeLight } = recipe;
 
+  // Active menus the user can add this recipe to (light shape for the modal)
+  const userMenus = await db
+    .select({
+      id: menus.id,
+      name: menus.name,
+      startDate: menus.startDate,
+      endDate: menus.endDate
+    })
+    .from(menus)
+    .orderBy(desc(menus.startDate));
+
   return {
     recipe: recipeLight,
     isFavorite: recipeFavorite,
     ingredients: ingredientsWithFav,
     tags: tagRows.map((t) => t.tag),
     categories: cats,
-    matchStats: { matched: matchedIngs, total: totalIngs }
+    matchStats: { matched: matchedIngs, total: totalIngs },
+    menus: userMenus
   };
+};
+
+export const actions: Actions = {
+  /** Add this recipe as a new slot in an existing menu. */
+  addToMenu: async ({ request, params }) => {
+    const slug = params.slug;
+    const [recipe] = await db
+      .select({ id: recipes.id })
+      .from(recipes)
+      .where(eq(recipes.slug, slug))
+      .limit(1);
+    if (!recipe) return fail(404, { error: 'Recette introuvable.' });
+
+    const data = await request.formData();
+    const menuId = parseInt((data.get('menuId') ?? '').toString(), 10);
+    const dateStr = (data.get('date') ?? '').toString();
+    const mealType = (data.get('mealType') ?? '').toString();
+    const servings = Math.max(
+      1,
+      Math.min(50, parseInt((data.get('servings') ?? '2').toString(), 10) || 2)
+    );
+
+    if (!Number.isFinite(menuId)) return fail(400, { error: 'Menu invalide.' });
+    if (!isValidMealType(mealType)) return fail(400, { error: 'Type de plat invalide.' });
+    const date = new Date(dateStr + 'T00:00:00');
+    if (!Number.isFinite(date.getTime())) return fail(400, { error: 'Date invalide.' });
+
+    // Verify the menu exists
+    const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1);
+    if (!menu) return fail(404, { error: 'Menu introuvable.' });
+
+    const [last] = await db
+      .select({ position: menuSlots.position })
+      .from(menuSlots)
+      .where(eq(menuSlots.menuId, menuId))
+      .orderBy(desc(menuSlots.position))
+      .limit(1);
+
+    await db.insert(menuSlots).values({
+      menuId,
+      date,
+      mealType,
+      recipeId: recipe.id,
+      servings,
+      position: (last?.position ?? -1) + 1
+    });
+
+    return { addedToMenu: true, menuId };
+  }
 };

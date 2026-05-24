@@ -2,7 +2,10 @@
   import { formatQty } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
   import FavoriteHeart from '$lib/components/FavoriteHeart.svelte';
+  import AddToMenuModal from '$lib/components/AddToMenuModal.svelte';
   import type { PageData } from './$types';
+
+  let addMenuOpen = $state(false);
 
   let { data }: { data: PageData } = $props();
 
@@ -61,7 +64,23 @@
       <h1 class="text-3xl font-semibold leading-tight text-gusto-cream">
         {data.recipe.nameFr}
       </h1>
-      <FavoriteHeart kind="recipe" id={data.recipe.id} favorited={data.isFavorite} size="lg" />
+      <FavoriteHeart
+        kind="recipe"
+        id={data.recipe.id}
+        favorited={data.isFavorite}
+        size="lg"
+        variant="overlay"
+      />
+    </div>
+
+    <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+      <button
+        type="button"
+        onclick={() => (addMenuOpen = true)}
+        class="inline-flex items-center gap-1.5 rounded-md bg-gusto-pink px-3 py-1.5 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+      >
+        <span aria-hidden="true">+</span> Ajouter à un menu
+      </button>
     </div>
 
     <div class="flex flex-wrap items-center justify-center gap-1.5 text-xs sm:justify-start">
@@ -103,7 +122,7 @@
         </div>
       </div>
       <div class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gusto-green-700">
-        <span><span class="font-medium">{Math.round(perServing.kcal * factor)}</span> kcal</span>
+        <span><span class="font-medium">{Math.round(perServing.kcal)}</span> kcal</span>
         <span><span class="font-medium">{perServing.protein_g.toFixed(0)}</span> g protéines</span>
         <span><span class="font-medium">{perServing.fat_g.toFixed(0)}</span> g lipides</span>
         <span><span class="font-medium">{perServing.carbs_g.toFixed(0)}</span> g glucides</span>
@@ -219,3 +238,9 @@
     </section>
   {/if}
 </article>
+
+<AddToMenuModal
+  open={addMenuOpen}
+  menus={data.menus}
+  onClose={() => (addMenuOpen = false)}
+/>

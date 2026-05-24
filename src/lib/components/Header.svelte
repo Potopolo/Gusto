@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { settingsOpen } from '$lib/stores/settings';
   import type { User } from '$lib/server/db/schema';
 
   let { currentUser, householdUsers }: { currentUser: User | null; householdUsers: User[] } =
@@ -20,29 +21,21 @@
   }
 </script>
 
-<header class="sticky top-0 z-10 overflow-hidden bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)]">
-  <!-- DA decorative pattern overlay. The SVG file is used as a CSS mask
-       so we colour it with a Tailwind text-* class instead of its baked-in
-       dark green (which would be invisible on a dark header bg). The
-       composite-source mask creates the "diffuse near the menu" fade. -->
-  <div
-    class="pointer-events-none absolute inset-0 text-gusto-cream/15"
-    style="background-color: currentColor; -webkit-mask-image: url('/patterns/pattern.svg'); mask-image: url('/patterns/pattern.svg'); -webkit-mask-size: 480px; mask-size: 480px; -webkit-mask-repeat: repeat; mask-repeat: repeat; -webkit-mask-position: center; mask-position: center;"
-    aria-hidden="true"
-  ></div>
-  <!-- Second pass: a smooth top-edge softener that blurs the pattern
-       lightly near the menu without affecting the lower band. -->
-  <div
-    class="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-gusto-green to-transparent"
-    aria-hidden="true"
-  ></div>
-
-  <div class="relative mx-auto max-w-4xl px-4">
-    <!-- Top row.
-         Mobile: logo centered (only child shown here, icon nav is below).
-         Desktop: flex with justify-between so logo sits flush-left, settings
-         flush-right, and the 5-link nav floats centered between them — its
-         middle item (Menus) lands at the geometric centre of the free space. -->
+<header
+  class="sticky top-0 z-10 bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)] dark:bg-black dark:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.7)]"
+>
+  <!-- Full-bleed DA background: solid green + chef-head pattern baked in.
+       Sits behind the logo row only — the mobile nav strip stays plain.
+       On desktop we shrink + repeat the tile so the motif size stays in
+       line with mobile (otherwise bg-cover blows the heads up on wide
+       viewports). -->
+  <div class="relative">
+    <div
+      class="pointer-events-none absolute inset-0 bg-[url('/patterns/header-bg.svg')] bg-cover bg-center sm:bg-[length:560px_auto] sm:bg-repeat"
+      aria-hidden="true"
+    ></div>
+    <div class="relative mx-auto max-w-4xl px-4">
+    <!-- Top row: logo (centered on mobile, flush-left on desktop) + desktop text nav -->
     <div class="flex items-center pt-2.5 sm:justify-between sm:pb-2.5">
       <a
         href="/"
@@ -69,26 +62,25 @@
       </nav>
 
       {#if currentUser}
-        {@const active = isActive('/parametres')}
-        <a
-          href="/parametres"
+        <button
+          type="button"
+          onclick={() => settingsOpen.set(true)}
           aria-label="Paramètres"
-          aria-current={active ? 'page' : undefined}
           title="Paramètres"
-          class="hidden items-center justify-center rounded-md p-1 transition duration-200 hover:-translate-y-0.5 sm:flex {active
+          class="hidden items-center justify-center rounded-md p-1 text-gusto-cream/80 transition duration-200 hover:-translate-y-0.5 hover:text-gusto-cream sm:flex {$settingsOpen
             ? 'text-gusto-pink'
-            : 'text-gusto-cream/80 hover:text-gusto-cream'}"
+            : ''}"
         >
-          {#key active}
-            <span
-              class="nav-icon nav-icon-settings {active ? 'nav-pop' : ''}"
-              aria-hidden="true"
-            ></span>
-          {/key}
-        </a>
+          <span class="nav-icon nav-icon-settings" aria-hidden="true"></span>
+        </button>
       {/if}
     </div>
+    </div>
+  </div>
+  <!-- /Full-bleed bg wrapper. Mobile nav is sibling of it so it stays
+       on the bare header bg with no pattern. -->
 
+  <div class="mx-auto max-w-4xl px-4">
     <!-- Mobile-only icon nav, with a discreet divider above -->
     <nav
       class="flex items-center justify-between gap-x-2 border-t border-gusto-cream/10 py-2.5 sm:hidden"
@@ -114,23 +106,17 @@
       {/each}
 
       {#if currentUser}
-        {@const active = isActive('/parametres')}
-        <a
-          href="/parametres"
+        <button
+          type="button"
+          onclick={() => settingsOpen.set(true)}
           aria-label="Paramètres"
-          aria-current={active ? 'page' : undefined}
           title="Paramètres"
-          class="nav-link flex flex-1 items-center justify-center rounded-md p-1 transition-colors {active
+          class="nav-link flex flex-1 items-center justify-center rounded-md p-1 transition-colors {$settingsOpen
             ? 'text-gusto-pink'
             : 'text-gusto-cream/80 hover:text-gusto-cream'}"
         >
-          {#key active}
-            <span
-              class="nav-icon nav-icon-settings {active ? 'nav-pop' : ''}"
-              aria-hidden="true"
-            ></span>
-          {/key}
-        </a>
+          <span class="nav-icon nav-icon-settings" aria-hidden="true"></span>
+        </button>
       {/if}
     </nav>
   </div>

@@ -48,6 +48,44 @@
   }
 }
 
+/* --- Dark mode global overrides ----------------------------------------
+ * The app paints most surfaces in cream (`bg-gusto-cream`) and most text
+ * in deep green (`text-gusto-green-700/900`). In dark mode we flip those
+ * tokens at the CSS level so we don't have to add dark: variants on
+ * every single card / form. Specific elements that should look different
+ * still override locally via `dark:` Tailwind classes.
+ * Palette hex values match tailwind.config.ts to stay in sync.
+ * --------------------------------------------------------------------- */
+.dark .bg-gusto-cream { background-color: #244530; } /* gusto-green-700 */
+.dark .text-gusto-green-900 { color: #f9ede5; }       /* gusto-cream */
+.dark .text-gusto-green-700 { color: rgba(249, 237, 229, 0.85); }
+.dark .text-gusto-green { color: #90c8a2; }           /* gusto-mint */
+.dark .border-gusto-green-100 { border-color: rgba(249, 237, 229, 0.10); }
+.dark .border-gusto-green-200 { border-color: rgba(249, 237, 229, 0.15); }
+.dark .divide-gusto-green-100 > * + * { border-color: rgba(249, 237, 229, 0.10); }
+.dark .bg-gusto-green-50 { background-color: rgba(249, 237, 229, 0.06); }
+.dark .bg-gusto-green-100 { background-color: rgba(249, 237, 229, 0.10); }
+.dark .hover\:bg-gusto-green-50:hover { background-color: rgba(249, 237, 229, 0.08); }
+.dark .hover\:bg-gusto-green-100:hover { background-color: rgba(249, 237, 229, 0.12); }
+/* Cream-on-cream text-on-bg pairings inside dark cards should pop */
+.dark .text-gusto-green-700\/70 { color: rgba(249, 237, 229, 0.65); }
+.dark .text-gusto-green-700\/60 { color: rgba(249, 237, 229, 0.55); }
+.dark .text-gusto-green-700\/40 { color: rgba(249, 237, 229, 0.35); }
+/* Inputs inside cream cards: invert the field background too. */
+.dark input[type='text'],
+.dark input[type='number'],
+.dark input[type='email'],
+.dark input[type='password'],
+.dark input[type='search'],
+.dark input[type='date'],
+.dark input[type='url'],
+.dark textarea,
+.dark select {
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #f9ede5;
+  border-color: rgba(249, 237, 229, 0.15);
+}
+
 /* --- Header nav icons -------------------------------------------------- */
 /* The nav icons live in /static/icons/nav as SVG masks. The element's
  * background-color drives the visible color, so we can recolor via any
@@ -73,6 +111,11 @@
 }
 .nav-link:hover .nav-icon {
   --hover-scale: 1.12;
+}
+/* Bigger variant used by the floating mobile nav */
+.nav-icon-lg {
+  width: 1.75rem;
+  height: 1.75rem;
 }
 .nav-icon-home {
   -webkit-mask-image: url('/icons/nav/home.svg');
