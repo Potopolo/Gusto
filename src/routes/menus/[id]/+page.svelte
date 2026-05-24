@@ -279,7 +279,7 @@
         {/if}
         <button
           type="button"
-          onclick={startAdd}
+          onclick={() => startAdd()}
           class="rounded-md bg-gusto-pink px-4 py-2 text-sm font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
         >
           + Ajouter un plat

@@ -39,7 +39,7 @@ async function recipeExists(id: number): Promise<boolean> {
 }
 
 export const load: PageServerLoad = async ({ params }) => {
-  const menuId = parseInt(params.id, 10);
+  const menuId = parseInt(params.id ?? "", 10);
   if (!Number.isFinite(menuId)) throw error(404, 'Menu introuvable');
 
   const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1);
@@ -153,7 +153,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 export const actions: Actions = {
   add: async ({ request, params }) => {
-    const menuId = parseInt(params.id, 10);
+    const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 
     const data = await request.formData();
@@ -193,7 +193,7 @@ export const actions: Actions = {
   },
 
   update: async ({ request, params }) => {
-    const menuId = parseInt(params.id, 10);
+    const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 
     const data = await request.formData();
@@ -221,7 +221,7 @@ export const actions: Actions = {
   },
 
   remove: async ({ request, params }) => {
-    const menuId = parseInt(params.id, 10);
+    const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404);
     const data = await request.formData();
     const slotId = parseInt((data.get('slotId') ?? '').toString(), 10);
@@ -238,7 +238,7 @@ export const actions: Actions = {
    * current recipe so the user always sees something new.
    */
   reroll: async ({ request, params }) => {
-    const menuId = parseInt(params.id, 10);
+    const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
     const data = await request.formData();
     const slotId = parseInt((data.get('slotId') ?? '').toString(), 10);
@@ -310,7 +310,7 @@ export const actions: Actions = {
   regenerate: async ({ params, locals }) => {
     if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
 
-    const menuId = parseInt(params.id, 10);
+    const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 
     const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1);
@@ -382,7 +382,7 @@ export const actions: Actions = {
    * One list per menu — re-running overwrites the previous one.
    */
   generateShoppingList: async ({ params }) => {
-    const menuId = parseInt(params.id, 10);
+    const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 
     const [menu] = await db.select().from(menus).where(eq(menus.id, menuId)).limit(1);

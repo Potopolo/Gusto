@@ -10,7 +10,7 @@ import { categorize, isShoppingCategory } from '$lib/shopping/categorize';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
-  const listId = parseInt(params.id, 10);
+  const listId = parseInt(params.id ?? "", 10);
   if (!Number.isFinite(listId)) throw error(404, 'Liste introuvable');
 
   const [list] = await db
@@ -39,7 +39,7 @@ export const load: PageServerLoad = async ({ params }) => {
 export const actions: Actions = {
   /** Remove a single item. Verifies the item belongs to the URL's list. */
   removeItem: async ({ request, params }) => {
-    const listId = parseInt(params.id, 10);
+    const listId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
 
     const data = await request.formData();
@@ -64,7 +64,7 @@ export const actions: Actions = {
    * detect from the item name.
    */
   addItem: async ({ request, params }) => {
-    const listId = parseInt(params.id, 10);
+    const listId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
 
     // Verify list exists before accepting writes
@@ -119,7 +119,7 @@ export const actions: Actions = {
    * write is fire-and-forget, and a failure response rolls the UI back.
    */
   toggleItem: async ({ request, params }) => {
-    const listId = parseInt(params.id, 10);
+    const listId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
 
     const data = await request.formData();

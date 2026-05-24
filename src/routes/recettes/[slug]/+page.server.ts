@@ -127,7 +127,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 export const actions: Actions = {
   /** Add this recipe as a new slot in an existing menu. */
   addToMenu: async ({ request, params }) => {
-    const slug = params.slug;
+    const slug = params.slug ?? '';
+    if (!slug) return fail(404, { error: 'Recette introuvable.' });
     const [recipe] = await db
       .select({ id: recipes.id })
       .from(recipes)
