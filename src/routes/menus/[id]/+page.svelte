@@ -14,13 +14,12 @@
   type SlotRow = (typeof data.slots)[number];
 
   const MEAL_TYPES = [
-    { value: 'petit-déj', label: 'Petit-déj' },
+    { value: 'petit-déj', label: 'Petit-déjeuner' },
     { value: 'déjeuner', label: 'Déjeuner' },
     { value: 'goûter', label: 'Goûter' },
     { value: 'apéro', label: 'Apéro' },
     { value: 'dîner', label: 'Dîner' },
-    { value: 'dessert', label: 'Dessert' },
-    { value: 'collation', label: 'Collation' }
+    { value: 'dessert', label: 'Dessert' }
   ];
 
   // Days enumerated from menu range — used by the top "Ajouter un plat" form
@@ -41,10 +40,14 @@
     return list;
   });
 
+  // Daily plan card: only the auto-generated slots. Manual additions live
+  // in their own "Plats ajoutés" card below so they don't pollute the
+  // weekly rhythm.
   let slotsByDate = $derived.by(() => {
     const map = new Map<string, SlotRow[]>();
     for (const { key } of menuDates) map.set(key, []);
     for (const row of data.slots) {
+      if (row.slot.isManual) continue;
       const key = format(row.slot.date, 'yyyy-MM-dd');
       const list = map.get(key);
       if (list) list.push(row);
@@ -52,6 +55,9 @@
     }
     return Array.from(map.entries());
   });
+
+  // Everything the user added by hand — separate from the daily plan.
+  let manualSlots = $derived(data.slots.filter((r) => r.slot.isManual));
 
   function dayTotalPoints(daySlots: SlotRow[]): number {
     return daySlots.reduce((sum, r) => sum + (r.recipe?.pointsPerServing ?? 0), 0);
@@ -80,6 +86,9 @@
   };
 
   let adding = $state(false);
+  /** Transient confirmation after a "Ajouter un plat" submit. */
+  let addedToast = $state<{ name: string } | null>(null);
+  let addToastTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Per-day collapse state. Tracks the date keys that are CURRENTLY collapsed
   // (default = empty = everything expanded).
@@ -152,6 +161,20 @@
     }
   }
 
+  /** Close the "Ajouter un plat" form and bring the user back to the top
+   *  of the menu view — without that the page stays scrolled where the
+   *  form was, which led some users to use the "← Menus" breadcrumb and
+   *  end up on the menu list instead. */
+  function closeAddForm() {
+    adding = false;
+    addRecipeId = '';
+    setTimeout(() => {
+      document
+        .getElementById('menu-top')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
+
   function toggleAddCat(slug: string) {
     if (addSelectedCats.includes(slug)) {
       addSelectedCats = addSelectedCats.filter((s) => s !== slug);
@@ -164,7 +187,7 @@
   let addFilteredRecipes = $derived.by(() => {
     const q = addSearchQ.trim().toLowerCase();
     return data.allRecipes.filter((r) => {
-      if (!isRecipeForMealType(r, addMealType)) return false;
+      if (!isRecipeForMealType({ ...r, name: r.nameFr }, addMealType)) return false;
       if (q && !r.nameFr.toLowerCase().includes(q)) return false;
       if (addSelectedCats.length > 0) {
         const rSlugs = new Set(r.categories.map((c) => c.slug));
@@ -220,7 +243,7 @@
     const q = editSearchQ.trim().toLowerCase();
     return data.allRecipes.filter((r) => {
       if (currentRecipeId === r.id) return true;
-      if (!isRecipeForMealType(r, editMealType)) return false;
+      if (!isRecipeForMealType({ ...r, name: r.nameFr }, editMealType)) return false;
       if (q && !r.nameFr.toLowerCase().includes(q)) return false;
       if (editSelectedCats.length > 0) {
         const rSlugs = new Set(r.categories.map((c) => c.slug));
@@ -233,7 +256,7 @@
 </script>
 
 <section class="space-y-6">
-  <nav class="text-sm">
+  <nav id="menu-top" class="text-sm">
     <a href="/menus" class="text-gusto-cream/70 hover:text-gusto-cream">← Menus</a>
   </nav>
 
@@ -294,17 +317,40 @@
       method="post"
       action="?/add"
       use:enhance={() => {
-        return async ({ update }) => {
+        // Capture the picked recipe BEFORE the form posts so we can name
+        // it in the confirmation toast.
+        const pickedId = addRecipeId;
+        const picked = data.allRecipes.find((r) => String(r.id) === pickedId);
+        return async ({ result, update }) => {
           // Keep form open so the user can add multiple dishes in a row.
           // Only clear the recipe pick — meal type / day / pills / portions
           // stay so quick repeats are smooth.
           await update({ reset: false });
           addRecipeId = '';
           addSearchQ = '';
+          if (result.type === 'success' && picked) {
+            if (addToastTimer) clearTimeout(addToastTimer);
+            addedToast = { name: picked.nameFr };
+            addToastTimer = setTimeout(() => (addedToast = null), 4000);
+          }
         };
       }}
       class="space-y-4 rounded-lg bg-gusto-cream p-4 text-gusto-green-900"
     >
+      <!-- Sticky-ish header with a close (✕) so the user always has an
+           obvious way back to the menu without using the breadcrumb. -->
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gusto-green-900">Ajouter un plat</h2>
+        <button
+          type="button"
+          onclick={closeAddForm}
+          aria-label="Fermer"
+          class="text-sm text-gusto-green-700 hover:text-gusto-green-900"
+        >
+          ✕
+        </button>
+      </div>
+
       <!-- Day is implicit: defaults to first menu day (selectable via hidden input).
            Per UX feedback, the dropdown was redundant — the user re-orders later if needed. -->
       <input type="hidden" name="date" value={addDate} />
@@ -377,6 +423,11 @@
         {/if}
 
         <input type="hidden" name="recipeId" value={addRecipeId} required />
+
+        <p class="text-[11px] text-gusto-green-700/70">
+          {addFilteredRecipes.length} recette{addFilteredRecipes.length > 1 ? 's' : ''}
+          disponible{addFilteredRecipes.length > 1 ? 's' : ''}
+        </p>
 
         <div class="max-h-80 overflow-auto rounded-md border border-gusto-green-100 bg-white p-2">
           {#if addFilteredRecipes.length === 0}
@@ -459,13 +510,10 @@
         <div class="ml-auto flex gap-2">
           <button
             type="button"
-            onclick={() => {
-              adding = false;
-              addRecipeId = '';
-            }}
+            onclick={closeAddForm}
             class="rounded-md px-3 py-1.5 text-sm text-gusto-green-700 hover:text-gusto-green-900"
           >
-            Annuler
+            Fermer
           </button>
           <button
             type="submit"
@@ -602,6 +650,11 @@
                       {/if}
 
                       <input type="hidden" name="recipeId" value={editRecipeId} required />
+
+                      <p class="text-[11px] text-gusto-green-700/70">
+                        {editFilteredRecipes.length} recette{editFilteredRecipes.length > 1 ? 's' : ''}
+                        disponible{editFilteredRecipes.length > 1 ? 's' : ''}
+                      </p>
 
                       <div class="max-h-80 overflow-auto rounded-md border border-gusto-green-100 bg-white p-2">
                         {#if editFilteredRecipes.length === 0}
@@ -815,6 +868,75 @@
     {/each}
   </div>
 
+  {#if manualSlots.length > 0}
+    <section class="rounded-lg bg-gusto-cream p-3 sm:p-4">
+      <header class="-mx-1 mb-3 flex items-baseline justify-between gap-2 rounded-md px-1">
+        <span class="text-base font-semibold text-gusto-green-900 sm:text-lg">
+          Plats ajoutés
+        </span>
+        <span class="text-xs text-gusto-green-700/70">
+          {manualSlots.length} plat{manualSlots.length > 1 ? 's' : ''}
+        </span>
+      </header>
+      <ul class="space-y-2">
+        {#each manualSlots as row (row.slot.id)}
+          {@const slot = row.slot}
+          {@const recipe = row.recipe}
+          {@const c = recipe?.pointsPerServing != null ? pointsColor(recipe.pointsPerServing) : null}
+          <li class="flex items-center gap-1 sm:gap-2">
+            {#if recipe}
+              <a
+                href={`/recettes/${recipe.slug}`}
+                class="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1.5 transition hover:bg-gusto-green-50 sm:gap-3 sm:p-2"
+              >
+                <span class="w-20 flex-none text-[10px] uppercase tracking-wide text-gusto-green-700/70 sm:w-24 sm:text-xs">
+                  {format(new Date(slot.date), 'EEE d MMM', { locale: fr })} · {slot.mealType}
+                </span>
+                {#if recipe.photoUrl}
+                  <img
+                    src={recipe.photoUrl}
+                    alt={recipe.nameFr}
+                    class="h-10 w-10 flex-none rounded object-cover sm:h-12 sm:w-12"
+                    loading="lazy"
+                  />
+                {:else}
+                  <div class="h-10 w-10 flex-none rounded bg-gusto-green-50 sm:h-12 sm:w-12"></div>
+                {/if}
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-gusto-green-900">{recipe.nameFr}</p>
+                  <p class="truncate text-xs text-gusto-green-700/70">
+                    {slot.servings} portion{slot.servings > 1 ? 's' : ''}
+                    {#if recipe.pointsPerServing != null}
+                      · {recipe.pointsPerServing} pts/{singularizeUnit(recipe.servingsUnit)}
+                    {/if}
+                  </p>
+                </div>
+                {#if c && recipe.pointsPerServing != null}
+                  <span
+                    class="flex h-8 w-8 flex-none items-center justify-center rounded-full {c.bg} {c.text} text-sm font-semibold sm:h-9 sm:w-9"
+                  >
+                    {recipe.pointsPerServing}
+                  </span>
+                {/if}
+              </a>
+            {/if}
+            <form method="post" action="?/remove" use:enhance>
+              <input type="hidden" name="slotId" value={slot.id} />
+              <button
+                type="submit"
+                aria-label="Retirer ce plat"
+                title="Retirer"
+                class="flex h-7 w-7 flex-none items-center justify-center rounded-full text-gusto-green-700/60 hover:bg-gusto-pink hover:text-gusto-green-900"
+              >
+                ✕
+              </button>
+            </form>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
   {#if !adding}
     <button
       type="button"
@@ -826,6 +948,24 @@
   {/if}
 
 </section>
+
+{#if addedToast}
+  <div
+    role="status"
+    aria-live="polite"
+    class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 transform rounded-lg bg-gusto-green-900 px-4 py-2.5 text-sm text-gusto-cream shadow-lg sm:bottom-8"
+  >
+    <span class="mr-2">✓ <strong>{addedToast.name}</strong> ajoutée au menu</span>
+    <button
+      type="button"
+      onclick={() => (addedToast = null)}
+      aria-label="Fermer"
+      class="ml-1 text-gusto-cream/70 hover:text-gusto-cream"
+    >
+      ✕
+    </button>
+  </div>
+{/if}
 
 <ConfirmDialog
   open={regenerateAsking}

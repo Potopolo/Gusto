@@ -1,0 +1,1 @@
+CREATE INDEX `recipes_points_idx` ON `recipes` (`points_per_serving`);

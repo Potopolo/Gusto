@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real, primaryKey, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export type MacroTargets = {
@@ -61,7 +61,9 @@ export const profiles = sqliteTable('profiles', {
   enableWeightTracking: integer('enable_weight_tracking', { mode: 'boolean' })
     .notNull()
     .default(true),
-  pointsFormulaConfig: text('points_formula_config', { mode: 'json' }).$type<PointsFormulaConfig>()
+  pointsFormulaConfig: text('points_formula_config', { mode: 'json' }).$type<PointsFormulaConfig>(),
+  /** Optional email used to pre-fill the "send shopping list" mailto link. */
+  notificationEmail: text('notification_email')
 });
 
 export const equipment = sqliteTable('equipment', {
@@ -91,28 +93,35 @@ export type RecipeNutrition = NutritionPer100g & {
 
 // ---- Recipes (global) ----
 
-export const recipes = sqliteTable('recipes', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  slug: text('slug').notNull().unique(),
-  sourceUrl: text('source_url').unique(),
-  authorAttribution: text('author_attribution'),
-  nameFr: text('name_fr').notNull(),
-  introMd: text('intro_md'),
-  instructionsMd: text('instructions_md').notNull(),
-  prepMinutes: integer('prep_minutes'),
-  cookMinutes: integer('cook_minutes'),
-  servings: integer('servings'),
-  servingsUnit: text('servings_unit'),
-  photoUrl: text('photo_url'),
-  rawHtmlCache: text('raw_html_cache'),
-  fetchedAt: integer('fetched_at', { mode: 'timestamp' }),
-  notes: text('notes'),
-  nutritionPerServing: text('nutrition_per_serving', { mode: 'json' }).$type<RecipeNutrition>(),
-  pointsPerServing: integer('points_per_serving'),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`)
-    .notNull()
-});
+export const recipes = sqliteTable(
+  'recipes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    slug: text('slug').notNull().unique(),
+    sourceUrl: text('source_url').unique(),
+    authorAttribution: text('author_attribution'),
+    nameFr: text('name_fr').notNull(),
+    introMd: text('intro_md'),
+    instructionsMd: text('instructions_md').notNull(),
+    prepMinutes: integer('prep_minutes'),
+    cookMinutes: integer('cook_minutes'),
+    servings: integer('servings'),
+    servingsUnit: text('servings_unit'),
+    photoUrl: text('photo_url'),
+    rawHtmlCache: text('raw_html_cache'),
+    fetchedAt: integer('fetched_at', { mode: 'timestamp' }),
+    notes: text('notes'),
+    nutritionPerServing: text('nutrition_per_serving', { mode: 'json' }).$type<RecipeNutrition>(),
+    pointsPerServing: integer('points_per_serving'),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .default(sql`(unixepoch())`)
+      .notNull()
+  },
+  (t) => ({
+    // Powers the intensity-bucket filter on /recettes (BETWEEN ranges).
+    pointsIdx: index('recipes_points_idx').on(t.pointsPerServing)
+  })
+);
 
 // ---- Ingredients catalog (global) ----
 
@@ -132,32 +141,45 @@ export const ingredients = sqliteTable('ingredients', {
 
 // ---- Recipe ↔ Ingredient join ----
 
-export const recipeIngredients = sqliteTable('recipe_ingredients', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  recipeId: integer('recipe_id')
-    .notNull()
-    .references(() => recipes.id, { onDelete: 'cascade' }),
-  ingredientId: integer('ingredient_id').references(() => ingredients.id),
-  matchConfidence: real('match_confidence'),
-  rawText: text('raw_text').notNull(),
-  quantity: real('quantity'),
-  unit: text('unit'),
-  ingredientHint: text('ingredient_hint'),
-  optional: integer('optional', { mode: 'boolean' }).notNull().default(false),
-  position: integer('position').notNull()
-});
+export const recipeIngredients = sqliteTable(
+  'recipe_ingredients',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    recipeId: integer('recipe_id')
+      .notNull()
+      .references(() => recipes.id, { onDelete: 'cascade' }),
+    ingredientId: integer('ingredient_id').references(() => ingredients.id),
+    matchConfidence: real('match_confidence'),
+    rawText: text('raw_text').notNull(),
+    quantity: real('quantity'),
+    unit: text('unit'),
+    ingredientHint: text('ingredient_hint'),
+    optional: integer('optional', { mode: 'boolean' }).notNull().default(false),
+    position: integer('position').notNull()
+  },
+  (t) => ({
+    recipeIdx: index('recipe_ingredients_recipe_idx').on(t.recipeId),
+    ingredientIdx: index('recipe_ingredients_ingredient_idx').on(t.ingredientId)
+  })
+);
 
 // ---- Recipe ↔ Equipment join ----
 
-export const recipeEquipment = sqliteTable('recipe_equipment', {
-  recipeId: integer('recipe_id')
-    .notNull()
-    .references(() => recipes.id, { onDelete: 'cascade' }),
-  equipmentId: integer('equipment_id')
-    .notNull()
-    .references(() => equipment.id),
-  required: integer('required', { mode: 'boolean' }).notNull().default(true)
-});
+export const recipeEquipment = sqliteTable(
+  'recipe_equipment',
+  {
+    recipeId: integer('recipe_id')
+      .notNull()
+      .references(() => recipes.id, { onDelete: 'cascade' }),
+    equipmentId: integer('equipment_id')
+      .notNull()
+      .references(() => equipment.id),
+    required: integer('required', { mode: 'boolean' }).notNull().default(true)
+  },
+  (t) => ({
+    recipeIdx: index('recipe_equipment_recipe_idx').on(t.recipeId)
+  })
+);
 
 // ---- Categories (global) ----
 
@@ -168,23 +190,36 @@ export const categories = sqliteTable('categories', {
   kind: text('kind').notNull()
 });
 
-export const recipeCategories = sqliteTable('recipe_categories', {
-  recipeId: integer('recipe_id')
-    .notNull()
-    .references(() => recipes.id, { onDelete: 'cascade' }),
-  categoryId: integer('category_id')
-    .notNull()
-    .references(() => categories.id)
-});
+export const recipeCategories = sqliteTable(
+  'recipe_categories',
+  {
+    recipeId: integer('recipe_id')
+      .notNull()
+      .references(() => recipes.id, { onDelete: 'cascade' }),
+    categoryId: integer('category_id')
+      .notNull()
+      .references(() => categories.id)
+  },
+  (t) => ({
+    recipeIdx: index('recipe_categories_recipe_idx').on(t.recipeId),
+    categoryIdx: index('recipe_categories_category_idx').on(t.categoryId)
+  })
+);
 
 // ---- Raw Amandine tags (informational) ----
 
-export const recipeTags = sqliteTable('recipe_tags', {
-  recipeId: integer('recipe_id')
-    .notNull()
-    .references(() => recipes.id, { onDelete: 'cascade' }),
-  tag: text('tag').notNull()
-});
+export const recipeTags = sqliteTable(
+  'recipe_tags',
+  {
+    recipeId: integer('recipe_id')
+      .notNull()
+      .references(() => recipes.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull()
+  },
+  (t) => ({
+    recipeIdx: index('recipe_tags_recipe_idx').on(t.recipeId)
+  })
+);
 
 // ---- Menus (per household) ----
 
@@ -209,51 +244,74 @@ export const menus = sqliteTable('menus', {
     .notNull()
 });
 
-export const menuSlots = sqliteTable('menu_slots', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  menuId: integer('menu_id')
-    .notNull()
-    .references(() => menus.id, { onDelete: 'cascade' }),
-  date: integer('date', { mode: 'timestamp' }).notNull(),
-  mealType: text('meal_type').notNull(), // 'petit-déj' | 'déjeuner' | 'dîner' | 'collation'
-  recipeId: integer('recipe_id').references(() => recipes.id),
-  servings: integer('servings').notNull().default(2),
-  freeText: text('free_text'),
-  position: integer('position').notNull().default(0)
-});
+export const menuSlots = sqliteTable(
+  'menu_slots',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    menuId: integer('menu_id')
+      .notNull()
+      .references(() => menus.id, { onDelete: 'cascade' }),
+    date: integer('date', { mode: 'timestamp' }).notNull(),
+    mealType: text('meal_type').notNull(), // 'petit-déj' | 'déjeuner' | 'dîner' | 'collation'
+    recipeId: integer('recipe_id').references(() => recipes.id),
+    servings: integer('servings').notNull().default(2),
+    freeText: text('free_text'),
+    position: integer('position').notNull().default(0),
+    // True when the slot was added manually (via "Ajouter à un menu" or
+    // the in-menu "Ajouter un plat" form) instead of being generated.
+    // Manual slots show up in a dedicated "Plats ajoutés" card.
+    isManual: integer('is_manual', { mode: 'boolean' }).notNull().default(false)
+  },
+  (t) => ({
+    menuIdx: index('menu_slots_menu_idx').on(t.menuId)
+  })
+);
 
 // ---- Shopping lists generated from a menu ----
 
-export const shoppingLists = sqliteTable('shopping_lists', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  menuId: integer('menu_id')
-    .references(() => menus.id, { onDelete: 'set null' }), // a list survives if its menu is deleted
-  householdId: integer('household_id')
-    .notNull()
-    .references(() => households.id),
-  name: text('name').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(unixepoch())`)
-    .notNull()
-});
+export const shoppingLists = sqliteTable(
+  'shopping_lists',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    menuId: integer('menu_id')
+      .references(() => menus.id, { onDelete: 'set null' }), // a list survives if its menu is deleted
+    householdId: integer('household_id')
+      .notNull()
+      .references(() => households.id),
+    name: text('name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .default(sql`(unixepoch())`)
+      .notNull()
+  },
+  (t) => ({
+    householdIdx: index('shopping_lists_household_idx').on(t.householdId),
+    menuIdx: index('shopping_lists_menu_idx').on(t.menuId)
+  })
+);
 
-export const shoppingListItems = sqliteTable('shopping_list_items', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  listId: integer('list_id')
-    .notNull()
-    .references(() => shoppingLists.id, { onDelete: 'cascade' }),
-  nameFr: text('name_fr').notNull(),
-  qty: real('qty'),
-  unit: text('unit'),
-  note: text('note'),
-  ingredientId: integer('ingredient_id').references(() => ingredients.id),
-  // 'fruits-legumes' | 'viandes-poissons' | 'produits-laitiers' | 'epicerie' |
-  // 'frais' | 'boissons' | 'surgeles' | 'autre'
-  category: text('category').notNull().default('autre'),
-  isChecked: integer('is_checked', { mode: 'boolean' }).notNull().default(false),
-  isManual: integer('is_manual', { mode: 'boolean' }).notNull().default(false),
-  position: integer('position').notNull().default(0)
-});
+export const shoppingListItems = sqliteTable(
+  'shopping_list_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    listId: integer('list_id')
+      .notNull()
+      .references(() => shoppingLists.id, { onDelete: 'cascade' }),
+    nameFr: text('name_fr').notNull(),
+    qty: real('qty'),
+    unit: text('unit'),
+    note: text('note'),
+    ingredientId: integer('ingredient_id').references(() => ingredients.id),
+    // 'fruits-legumes' | 'viandes-poissons' | 'produits-laitiers' | 'epicerie' |
+    // 'frais' | 'boissons' | 'surgeles' | 'autre'
+    category: text('category').notNull().default('autre'),
+    isChecked: integer('is_checked', { mode: 'boolean' }).notNull().default(false),
+    isManual: integer('is_manual', { mode: 'boolean' }).notNull().default(false),
+    position: integer('position').notNull().default(0)
+  },
+  (t) => ({
+    listIdx: index('shopping_list_items_list_idx').on(t.listId)
+  })
+);
 
 // ---- Favorites (per-user) ----
 

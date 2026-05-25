@@ -2,14 +2,19 @@
   import { formatMinutes } from '$lib/format';
   import { pointsColor, singularizeUnit } from '$lib/points-color';
   import FavoriteHeart from '$lib/components/FavoriteHeart.svelte';
+  import RecipeImage from '$lib/components/RecipeImage.svelte';
   import { INTENSITY_LEVELS } from '$lib/intensity';
+  import { untrack } from 'svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
-  let searchInput = $state(data.q);
+  // Local input state — seeded from the URL once. SvelteKit re-mounts this
+  // page on full navigation, so a stale capture is fine; untrack() makes
+  // the intent explicit and silences the state_referenced_locally warning.
+  let searchInput = $state(untrack(() => data.q));
   // Filter block collapse state — collapsed by default if no filters are active,
   // expanded if at least one is selected (so the user always sees what's active).
-  let filtersOpen = $state(data.selectedCats.length > 0);
+  let filtersOpen = $state(untrack(() => data.selectedCats.length > 0));
 
   function urlWithToggledCat(slug: string): string {
     const next = data.selectedCats.includes(slug)
@@ -191,18 +196,12 @@
             class="group block overflow-hidden rounded-lg bg-gusto-cream transition hover:ring-2 hover:ring-gusto-pink"
           >
             <div class="relative">
-              {#if recipe.photoUrl}
-                <div class="aspect-[4/3] overflow-hidden bg-gusto-green-50">
-                  <img
-                    src={recipe.photoUrl}
-                    alt={recipe.nameFr}
-                    loading="lazy"
-                    class="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                </div>
-              {:else}
-                <div class="aspect-[4/3] bg-gusto-green-50"></div>
-              {/if}
+              <RecipeImage
+                src={recipe.photoUrl}
+                alt={recipe.nameFr}
+                categorySlugs={recipe.categories.map((c) => c.slug)}
+                class="aspect-[4/3] w-full transition group-hover:scale-105"
+              />
 
               {#if recipe.pointsPerServing != null}
                 {@const c = pointsColor(recipe.pointsPerServing)}

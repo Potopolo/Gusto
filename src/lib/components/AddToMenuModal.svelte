@@ -6,7 +6,7 @@
   import { enhance } from '$app/forms';
   import { format } from 'date-fns';
   import { fr } from 'date-fns/locale';
-  import { goto } from '$app/navigation';
+  import { isRecipeForMealType } from '$lib/menus/sweet';
 
   type MenuOpt = { id: number; name: string; startDate: Date; endDate: Date };
 
@@ -14,18 +14,48 @@
     open: boolean;
     menus: MenuOpt[];
     onClose: () => void;
+    /** Called after a successful add. The parent decides what to do next
+     *  (e.g. show a toast and stay on the recipe page, vs navigate). */
+    onAdded?: (info: { menuId: number; menuName: string }) => void;
+    /** Recipe context — when provided, used to narrow the slot type list
+     *  so a dessert can't be added as a déjeuner, etc. */
+    recipe?: {
+      categories: { slug: string }[];
+      isSweet?: boolean;
+      name?: string;
+    };
   };
-  let { open, menus, onClose }: Props = $props();
+  let { open, menus, onClose, onAdded, recipe }: Props = $props();
 
-  const MEAL_TYPES = [
-    { value: 'petit-déj', label: 'Petit-déj' },
+  /** All slot types we expose in the picker. The set narrows further at
+   *  the recipe level (see `allowedMealTypes` below) — for a recipe that
+   *  doesn't fit a main meal, we'd default to a "garniture" type. */
+  const ALL_MEAL_TYPES = [
+    { value: 'petit-déj', label: 'Petit-déjeuner' },
     { value: 'déjeuner', label: 'Déjeuner' },
     { value: 'goûter', label: 'Goûter' },
     { value: 'apéro', label: 'Apéro' },
     { value: 'dîner', label: 'Dîner' },
-    { value: 'dessert', label: 'Dessert' },
-    { value: 'collation', label: 'Collation' }
+    { value: 'dessert', label: 'Dessert' }
   ];
+
+  // Hide slot types that don't fit the recipe's nature (e.g. a dessert
+  // shouldn't be addable as a déjeuner, a soupe shouldn't appear as a
+  // goûter). When no `recipe` prop is supplied we leave the full list
+  // visible so the modal stays usable as a generic picker.
+  const MEAL_TYPES = $derived.by(() => {
+    if (!recipe) return ALL_MEAL_TYPES;
+    return ALL_MEAL_TYPES.filter((t) =>
+      isRecipeForMealType(
+        {
+          categories: recipe.categories,
+          isSweet: recipe.isSweet,
+          name: recipe.name
+        },
+        t.value
+      )
+    );
+  });
 
   let selectedMenuId = $state<number | null>(null);
   let selectedDate = $state('');
@@ -34,13 +64,18 @@
   let busy = $state(false);
   let errorMsg = $state('');
 
-  // Reset state every time the modal opens
+  // Reset state every time the modal opens. We pick the FIRST allowed
+  // meal type for the recipe so we don't default to a value the user
+  // can't actually submit (the option list could have hidden 'déjeuner').
   $effect(() => {
     if (open) {
       const first = menus[0];
       selectedMenuId = first?.id ?? null;
       selectedDate = first ? format(first.startDate, 'yyyy-MM-dd') : '';
-      mealType = 'déjeuner';
+      const allowed = MEAL_TYPES.map((t) => t.value);
+      mealType = allowed.includes('déjeuner')
+        ? 'déjeuner'
+        : (allowed[0] ?? 'déjeuner');
       servings = 2;
       busy = false;
       errorMsg = '';
@@ -100,30 +135,30 @@
     aria-labelledby="addmenu-title"
   >
     <div
-      class="absolute inset-0 bg-gusto-green-900/70 backdrop-blur-sm dark:bg-black/80"
+      class="absolute inset-0 bg-gusto-green-900/70 backdrop-blur-sm"
       onclick={onClose}
       aria-hidden="true"
     ></div>
 
     <div
-      class="relative w-full max-w-md space-y-4 rounded-lg bg-gusto-cream p-5 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.6)] dark:bg-gusto-green-900 dark:text-gusto-cream"
+      class="relative w-full max-w-md space-y-4 rounded-lg bg-gusto-cream p-5 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.6)]"
     >
       <header class="flex items-baseline justify-between">
-        <h2 id="addmenu-title" class="text-lg font-semibold text-gusto-green-900 dark:text-gusto-cream">
+        <h2 id="addmenu-title" class="text-lg font-semibold text-gusto-green-900">
           Ajouter à un menu
         </h2>
         <button
           type="button"
           onclick={onClose}
           aria-label="Fermer"
-          class="text-sm text-gusto-green-700 hover:text-gusto-green-900 dark:text-gusto-cream/70 dark:hover:text-gusto-cream"
+          class="text-sm text-gusto-green-700 hover:text-gusto-green-900"
         >
           ✕
         </button>
       </header>
 
       {#if menus.length === 0}
-        <p class="text-sm text-gusto-green-700 dark:text-gusto-cream/80">
+        <p class="text-sm text-gusto-green-700">
           Aucun menu en bibliothèque pour l'instant.
           <a
             href="/menus/nouveau"
@@ -141,13 +176,12 @@
             errorMsg = '';
             return async ({ result }) => {
               busy = false;
-              if (result.type === 'redirect') {
+              if (result.type === 'success') {
+                const menuId = result.data?.menuId as number | undefined;
+                const menu = menus.find((m) => m.id === menuId);
                 onClose();
-                await goto(result.location);
-              } else if (result.type === 'success') {
-                if (result.data?.menuId) {
-                  onClose();
-                  await goto(`/menus/${result.data.menuId}`);
+                if (menuId && menu) {
+                  onAdded?.({ menuId, menuName: menu.name });
                 }
               } else if (result.type === 'failure') {
                 errorMsg = (result.data?.error as string) ?? 'Échec de l’ajout.';
@@ -158,7 +192,7 @@
         >
           <!-- Menu -->
           <fieldset class="space-y-1.5">
-            <legend class="text-xs font-medium text-gusto-green-700 dark:text-gusto-cream/70">
+            <legend class="text-xs font-medium text-gusto-green-700">
               Menu
             </legend>
             <div class="flex flex-col gap-1">
@@ -173,7 +207,7 @@
                     onchange={() => onMenuChange(m.id)}
                     class="text-gusto-pink"
                   />
-                  <span class="text-sm text-gusto-green-900 dark:text-gusto-cream">
+                  <span class="text-sm text-gusto-green-900">
                     {m.name}
                   </span>
                 </label>
@@ -182,12 +216,12 @@
           </fieldset>
 
           <!-- Date -->
-          <label class="block text-xs font-medium text-gusto-green-700 dark:text-gusto-cream/70">
+          <label class="block text-xs font-medium text-gusto-green-700">
             Jour
             <select
               name="date"
               bind:value={selectedDate}
-              class="mt-1 block w-full rounded-md text-sm text-gusto-green-900 shadow-sm dark:bg-gusto-green-700 dark:text-gusto-cream"
+              class="mt-1 block w-full rounded-md text-sm text-gusto-green-900 shadow-sm"
             >
               {#each availableDates as d (d.value)}
                 <option value={d.value}>{d.label}</option>
@@ -197,7 +231,7 @@
 
           <!-- Meal type -->
           <fieldset>
-            <legend class="mb-1 text-xs font-medium text-gusto-green-700 dark:text-gusto-cream/70">
+            <legend class="mb-1 text-xs font-medium text-gusto-green-700">
               Type de plat
             </legend>
             <div class="flex flex-wrap gap-1.5">
@@ -214,7 +248,7 @@
                     class="peer sr-only"
                   />
                   <span
-                    class="block rounded-full border border-gusto-green-200 bg-white px-3 py-1 text-xs font-medium text-gusto-green-700 transition peer-checked:border-gusto-pink peer-checked:bg-gusto-pink peer-checked:text-gusto-green-900 hover:bg-gusto-green-50 dark:bg-transparent dark:text-gusto-cream/80"
+                    class="block rounded-full border border-gusto-green-200 bg-white px-3 py-1 text-xs font-medium text-gusto-green-700 transition peer-checked:border-gusto-pink peer-checked:bg-gusto-pink peer-checked:text-gusto-green-900 hover:bg-gusto-green-50"
                   >
                     {t.label}
                   </span>
@@ -225,25 +259,25 @@
 
           <!-- Portions -->
           <div class="flex items-center gap-3">
-            <span class="text-xs font-medium text-gusto-green-700 dark:text-gusto-cream/70">
+            <span class="text-xs font-medium text-gusto-green-700">
               Portions
             </span>
             <div
-              class="inline-flex items-center rounded-md border border-gusto-green-200 bg-white dark:border-gusto-cream/20 dark:bg-transparent"
+              class="inline-flex items-center rounded-md border border-gusto-green-200 bg-white"
             >
               <button
                 type="button"
                 onclick={() => (servings = Math.max(1, servings - 1))}
-                class="px-2 py-1 text-base leading-none text-gusto-green hover:bg-gusto-green-50 dark:text-gusto-cream"
+                class="px-2 py-1 text-base leading-none text-gusto-green hover:bg-gusto-green-50"
                 aria-label="Diminuer"
               >−</button>
-              <span class="border-x border-gusto-green-200 px-3 py-1 text-sm font-medium dark:border-gusto-cream/20 dark:text-gusto-cream">
+              <span class="border-x border-gusto-green-200 px-3 py-1 text-sm font-medium text-gusto-green-900">
                 {servings}
               </span>
               <button
                 type="button"
                 onclick={() => (servings = Math.min(50, servings + 1))}
-                class="px-2 py-1 text-base leading-none text-gusto-green hover:bg-gusto-green-50 dark:text-gusto-cream"
+                class="px-2 py-1 text-base leading-none text-gusto-green hover:bg-gusto-green-50"
                 aria-label="Augmenter"
               >+</button>
             </div>
@@ -258,7 +292,7 @@
             <button
               type="button"
               onclick={onClose}
-              class="rounded-md px-3 py-1.5 text-sm text-gusto-green-700 hover:text-gusto-green-900 dark:text-gusto-cream/70 dark:hover:text-gusto-cream"
+              class="rounded-md px-3 py-1.5 text-sm text-gusto-green-700 hover:text-gusto-green-900"
             >
               Annuler
             </button>

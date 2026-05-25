@@ -38,7 +38,9 @@ export const load: PageServerLoad = async ({ params }) => {
 
 export const actions: Actions = {
   /** Remove a single item. Verifies the item belongs to the URL's list. */
-  removeItem: async ({ request, params }) => {
+  removeItem: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const listId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
 
@@ -63,7 +65,9 @@ export const actions: Actions = {
    * entretien). Category can be passed explicitly or left empty to auto-
    * detect from the item name.
    */
-  addItem: async ({ request, params }) => {
+  addItem: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const listId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
 
@@ -118,7 +122,9 @@ export const actions: Actions = {
    * client-side checkbox in the list view — the UI flips immediately, this
    * write is fire-and-forget, and a failure response rolls the UI back.
    */
-  toggleItem: async ({ request, params }) => {
+  toggleItem: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const listId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(listId)) return fail(404, { error: 'Liste introuvable.' });
 

@@ -30,7 +30,9 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
   /** Hard-delete a list (items cascade via the schema's onDelete: 'cascade'). */
-  delete: async ({ request }) => {
+  delete: async ({ request, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const data = await request.formData();
     const listId = parseInt((data.get('listId') ?? '').toString(), 10);
     if (!Number.isFinite(listId)) return fail(400, { error: 'Liste invalide.' });

@@ -14,25 +14,47 @@ export function isSweetByName(text: string | null | undefined): boolean {
 }
 
 /**
+ * Recipes that are NOT a meal on their own — condiments, sauces, dips,
+ * spreads, plain dairy, drinks, snacks. They shouldn't surface as a
+ * déjeuner / dîner pick. Heuristic on the recipe name only (catches the
+ * "Ketchup maison", "Yaourt grec", "Confiture de pêches" cases that no
+ * category tag covers).
+ */
+export const NOT_A_MEAL_RE =
+  /\b(ketchup|mayonnaise|moutarde|sauce(?!\s+(bolognaise|tomate\s+pour\s+p[âa]tes|au\s+poisson))[^,]*|vinaigrette|pesto|tapenade|houmous|guacamole|tartinade|confit(?:ure)?|gel[ée]e|coulis|sirop|caramel\s+liquide|pickles?|chutney|relish|condiment|marinade|ras\s+el\s+hanout|pain\s+(?:perdu\s+)?(?:de\s+mie|maison)|p[âa]te\s+(?:bris[ée]e|sabl[ée]e|feuillet[ée]e|[àa]\s+(?:tarte|pizza|cr[êe]pes?|gaufres?|tartiner))|pizza\s+dough|yaourt(?:\s+grec)?|fromage\s+blanc(?:\s+0%)?(?:\s+nature)?|skyr|kefir|smoothie|jus\s+de|infusion|th[ée](?:\s+glac[ée])?|tisane|caf[ée]\s+(?:glac[ée]|frapp[ée])|chocolat\s+chaud|cocktail|granola|m[üu]esli|porridge|barre\s+(?:de\s+c[ée]r[ée]ales|prot[ée]in[ée]e)|en[- ]cas|snack|gressins?|crackers?|chips?|popcorn|pop[- ]corn)\b/i;
+
+export function isNotAMeal(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return NOT_A_MEAL_RE.test(text);
+}
+
+/**
  * Decide whether a recipe is appropriate for a given meal type.
- * Pure: takes the recipe's categories (slugs) + isSweet flag + (optionally) tags.
+ * Pure: takes the recipe's categories (slugs) + isSweet flag + name.
+ *
+ * The `name` argument is optional but recommended: it catches the
+ * "Ketchup maison" / "Yaourt grec" / "Confiture de pêches" cases that
+ * carry no category tag yet still aren't a real meal.
  */
 export function isRecipeForMealType(
-  recipe: { categories: { slug: string }[]; isSweet?: boolean },
+  recipe: { categories: { slug: string }[]; isSweet?: boolean; name?: string },
   mealType: string
 ): boolean {
   const slugs = new Set(recipe.categories.map((c) => c.slug));
   const sweet = !!recipe.isSweet || slugs.has('dessert') || slugs.has('gourmand');
+  const notAMeal = isNotAMeal(recipe.name);
 
   switch (mealType) {
     case 'déjeuner':
     case 'dîner':
       if (sweet) return false;
+      if (notAMeal) return false;
       if (
         slugs.has('apero') ||
         slugs.has('petit-dej') ||
         slugs.has('boisson') ||
-        slugs.has('gouter')
+        slugs.has('gouter') ||
+        slugs.has('accompagnement')
       ) {
         return false;
       }
@@ -45,8 +67,6 @@ export function isRecipeForMealType(
       return slugs.has('gouter') || sweet;
     case 'petit-déj':
       return slugs.has('petit-dej');
-    case 'collation':
-      return true;
     default:
       return true;
   }

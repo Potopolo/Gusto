@@ -14,6 +14,7 @@ import { fetchHtml, fetchSitemapUrls } from './fetcher';
 import { parseAmandineHTML } from './amandine-parser';
 import { persistRecipe } from './persist';
 import * as schema from '../db/schema';
+import { recipes } from '../db/schema';
 
 const SITEMAP_URL = 'https://www.amandinecooking.com/sitemap.xml';
 
@@ -60,9 +61,32 @@ async function main() {
   let notARecipe = 0;
   let errors = 0;
 
+  // Pre-load every URL we already have a recipe for. With a 6 s polite
+  // crawl delay, skipping a known URL before the fetch saves ~6 s each,
+  // which adds up quickly across 1300+ already-imported recipes.
+  // `--force` bypasses this so a full re-crawl stays possible.
+  const knownUrls = args.force
+    ? new Set<string>()
+    : new Set(
+        (await db.select({ url: recipes.sourceUrl }).from(recipes))
+          .map((r) => r.url)
+          .filter((u): u is string => u != null)
+      );
+  if (knownUrls.size > 0) {
+    console.log(`  → ${knownUrls.size} URLs déjà en base — seront ignorées sans fetch.`);
+  }
+
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i]!;
     const label = `[${i + 1}/${urls.length}]`;
+
+    // Cheap pre-fetch skip — saves the 6 s throttle on URLs we already have.
+    if (knownUrls.has(url)) {
+      skipped++;
+      console.log(`${label} = (déjà en base, skip sans fetch)`);
+      continue;
+    }
+
     try {
       const html = await fetchHtml(url);
       const parsed = parseAmandineHTML(html, url);

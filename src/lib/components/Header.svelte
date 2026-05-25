@@ -22,7 +22,7 @@
 </script>
 
 <header
-  class="sticky top-0 z-10 bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)] dark:bg-black dark:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.7)]"
+  class="sticky top-0 z-10 bg-gusto-green shadow-[0_10px_28px_-6px_rgba(0,0,0,0.5)]"
 >
   <!-- Full-bleed DA background: solid green + chef-head pattern baked in.
        Sits behind the logo row only — the mobile nav strip stays plain.
@@ -52,8 +52,7 @@
           <a
             href={link.href}
             aria-current={active ? 'page' : undefined}
-            class="font-medium transition duration-200 hover:-translate-y-0.5 {active
-              ? 'text-gusto-pink'
+            class="font-medium transition duration-200 hover:-translate-y-0.5 {active ? 'text-gusto-pink'
               : 'text-gusto-cream/80 hover:text-gusto-cream'}"
           >
             {link.label}
@@ -67,8 +66,7 @@
           onclick={() => settingsOpen.set(true)}
           aria-label="Paramètres"
           title="Paramètres"
-          class="hidden items-center justify-center rounded-md p-1 text-gusto-cream/80 transition duration-200 hover:-translate-y-0.5 hover:text-gusto-cream sm:flex {$settingsOpen
-            ? 'text-gusto-pink'
+          class="hidden items-center justify-center rounded-md p-1 text-gusto-cream/80 transition duration-200 hover:-translate-y-0.5 hover:text-gusto-cream sm:flex {$settingsOpen ? 'text-gusto-pink'
             : ''}"
         >
           <span class="nav-icon nav-icon-settings" aria-hidden="true"></span>
@@ -92,8 +90,7 @@
           aria-label={link.label}
           aria-current={active ? 'page' : undefined}
           title={link.label}
-          class="nav-link flex flex-1 items-center justify-center rounded-md p-1 transition-colors {active
-            ? 'text-gusto-pink'
+          class="nav-link flex flex-1 items-center justify-center rounded-md p-1 transition-colors {active ? 'text-gusto-pink'
             : 'text-gusto-cream/80 hover:text-gusto-cream'}"
         >
           {#key active}
@@ -111,8 +108,7 @@
           onclick={() => settingsOpen.set(true)}
           aria-label="Paramètres"
           title="Paramètres"
-          class="nav-link flex flex-1 items-center justify-center rounded-md p-1 transition-colors {$settingsOpen
-            ? 'text-gusto-pink'
+          class="nav-link flex flex-1 items-center justify-center rounded-md p-1 transition-colors {$settingsOpen ? 'text-gusto-pink'
             : 'text-gusto-cream/80 hover:text-gusto-cream'}"
         >
           <span class="nav-icon nav-icon-settings" aria-hidden="true"></span>

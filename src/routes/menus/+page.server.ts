@@ -17,7 +17,9 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
   /** Hard-delete a menu (menu_slots cascade via the schema's onDelete: 'cascade'). */
-  delete: async ({ request }) => {
+  delete: async ({ request, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const data = await request.formData();
     const menuId = parseInt((data.get('menuId') ?? '').toString(), 10);
     if (!Number.isFinite(menuId)) return fail(400, { error: 'Menu invalide.' });

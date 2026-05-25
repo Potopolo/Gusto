@@ -6,11 +6,24 @@
   let creating = $state(false);
 </script>
 
-<div class="mx-auto max-w-md pt-12">
-  <h1 class="mb-1 text-xl font-semibold text-gusto-cream">Qui utilise l'app ?</h1>
-  <p class="mb-6 text-sm text-gusto-cream/70">
-    Choisis ton profil. Tu pourras changer à tout moment depuis le header.
-  </p>
+<!-- Full-viewport login layout: vertically centred, large logo, no
+     header (the layout already hides the chrome on /choisir-profil). -->
+<div
+  class="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col items-center justify-center px-4"
+>
+  <div class="mb-8 flex justify-center">
+    <img
+      src="/icons/logo-full-pink.png"
+      alt="Gusto"
+      class="h-auto w-80 max-w-full sm:w-[28rem]"
+    />
+  </div>
+
+  <h1 class="mb-8 text-center font-display text-3xl text-gusto-cream sm:text-4xl">
+    Qui va là ?
+  </h1>
+
+  <div class="w-full">
 
   <div class="space-y-3">
     {#each data.users as user (user.id)}
@@ -81,4 +94,5 @@
   {#if form?.error}
     <p class="mt-4 text-sm text-gusto-pink-200">{form.error}</p>
   {/if}
+  </div>
 </div>

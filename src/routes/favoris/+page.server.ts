@@ -1,27 +1,23 @@
-import { error, fail, redirect, type Actions } from '@sveltejs/kit';
+import { fail, redirect, type Actions } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import {
-  profiles,
   equipment,
   favoriteRecipes,
   favoriteIngredients,
   recipes,
-  ingredients,
-  type Profile
+  ingredients
 } from '$lib/server/db/schema';
 import { asc, desc, eq } from 'drizzle-orm';
+import { ensureProfile } from '$lib/server/profile';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.currentUser) throw redirect(303, '/choisir-profil');
 
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.userId, locals.currentUser.id))
-    .limit(1);
-
-  if (!profile) throw error(500, 'Profile not seeded');
+  // Self-heal users that somehow ended up without a profile row instead of
+  // bouncing to a 500. The seed values match what `/choisir-profil` writes
+  // when a profile is created from the UI.
+  const profile = await ensureProfile(locals.currentUser.id);
 
   const allEquipment = await db.select().from(equipment).orderBy(equipment.nameFr);
 
@@ -52,7 +48,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     .orderBy(asc(ingredients.nameFr));
 
   return {
-    profile: profile as Profile,
+    profile,
     equipment: allEquipment,
     favRecipes,
     favIngredients
@@ -60,11 +56,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-  toggleEquipment: async ({ request }) => {
+  toggleEquipment: async ({ request, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
     const data = await request.formData();
     const id = parseInt((data.get('id') ?? '').toString(), 10);
     const owned = data.get('owned') === 'true';
-    if (!Number.isFinite(id)) return fail(400);
+    if (!Number.isFinite(id)) return fail(400, { error: 'Identifiant invalide.' });
     await db.update(equipment).set({ owned }).where(eq(equipment.id, id));
     return { saved: 'equipment' };
   }

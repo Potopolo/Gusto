@@ -5,9 +5,15 @@ import {
   categories,
   favoriteRecipes
 } from '$lib/server/db/schema';
-import { and, between, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, between, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { INTENSITY_LEVELS, isIntensitySlug } from '$lib/intensity';
 import type { PageServerLoad } from './$types';
+
+/** Escape the SQL LIKE wildcards (`%`, `_`, `\`) so a user typing "100%" or
+ *  "crème_brûlée" in the search box doesn't trip the pattern matcher. */
+function escapeLikePattern(s: string): string {
+  return s.replace(/[\\%_]/g, '\\$&');
+}
 
 export type RecipeListItem = {
   id: number;
@@ -118,7 +124,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
   // 2) Build the recipe query with combined filters
   const conditions = [
-    q ? like(recipes.nameFr, `%${q}%`) : undefined,
+    q ? sql`${recipes.nameFr} LIKE ${'%' + escapeLikePattern(q) + '%'} ESCAPE '\\'` : undefined,
     recipeIdsForCats ? inArray(recipes.id, recipeIdsForCats) : undefined,
     intensityRangePredicate
   ].filter(Boolean);

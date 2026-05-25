@@ -1,0 +1,1 @@
+ALTER TABLE `menu_slots` ADD `is_manual` integer DEFAULT false NOT NULL;

@@ -12,7 +12,13 @@ data/*.db-wal
 data/*.db-shm
 data/ciqual.xlsx
 data/ciqual.xls
+data/ww-screenshots/
 *.log
 .DS_Store
 .vscode/
 .idea/
+
+# Secrets — never commit
+turso token.txt
+*token*.txt
+cf-token.txt

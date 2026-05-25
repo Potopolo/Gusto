@@ -9,15 +9,16 @@
     type ShoppingCategory
   } from '$lib/shopping/categorize';
   import { swipeToDelete } from '$lib/actions/swipeToDelete';
+  import { untrack } from 'svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
 
   // Initialize the checked set from the persisted item.isChecked flag.
-  // Use $state(...) wrapped in an IIFE so re-mounts (e.g. after a list
-  // generation) hydrate from the latest server payload.
+  // Wrapped in untrack() so we don't re-derive on every prop change; the
+  // optimistic UI owns this state once the page is mounted.
   let checked = $state<Set<number>>(
-    new Set(data.items.filter((it) => it.isChecked).map((it) => it.id))
+    untrack(() => new Set(data.items.filter((it) => it.isChecked).map((it) => it.id)))
   );
 
   async function toggle(itemId: number) {
@@ -90,6 +91,25 @@
     }
   }
 
+  /** Build a mailto: link that pre-fills the user's saved email and an
+   *  inline-formatted shopping list. We stay client-side on purpose —
+   *  no email server, no leak of the list outside the user's own client. */
+  function mailtoLink(): string {
+    const lines: string[] = [];
+    for (const group of grouped) {
+      lines.push(`-- ${CATEGORY_LABELS[group.slug] ?? group.slug} --`);
+      for (const it of group.items) {
+        const qty = it.qty != null ? `${it.qty}${it.unit ? ' ' + it.unit : ''} ` : '';
+        lines.push(`• ${qty}${it.nameFr}`);
+      }
+      lines.push('');
+    }
+    const subject = `Liste de courses — ${data.list.name}`;
+    const body = lines.join('\n');
+    const to = data.notificationEmail ?? '';
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
   // Group items by category, sort each group alphabetically.
   const grouped = $derived.by(() => {
     const map = new Map<ShoppingCategory, typeof data.items>();
@@ -136,6 +156,24 @@
         >
       {/if}
     </p>
+
+    {#if data.items.length > 0}
+      <div class="flex flex-wrap justify-center gap-2 pt-1 sm:justify-start">
+        <a
+          href={mailtoLink()}
+          class="inline-flex items-center gap-1.5 rounded-md bg-gusto-pink px-3 py-1.5 text-xs font-medium text-gusto-green-900 hover:bg-gusto-pink-200"
+        >
+          ✉ Envoyer par email
+        </a>
+        {#if !data.notificationEmail}
+          <span class="text-xs text-gusto-cream/60">
+            Renseigne ton email dans
+            <a href="/parametres" class="underline hover:text-gusto-cream">Paramètres</a>
+            pour pré-remplir le destinataire.
+          </span>
+        {/if}
+      </div>
+    {/if}
   </header>
 
   {#if data.items.length === 0}

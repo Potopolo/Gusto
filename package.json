@@ -14,6 +14,7 @@
     "db:seed": "tsx --env-file=.env.local src/lib/server/db/seed.ts",
     "db:reset": "rimraf data/local.db && npm run db:migrate && npm run db:seed",
     "scrape:amandine": "tsx --env-file=.env.local src/lib/server/scraper/run.ts",
+    "scrape:fourchette": "tsx --env-file=.env.local src/lib/server/scraper/fourchette-run.ts",
     "extract:times": "tsx --env-file=.env.local src/lib/server/scraper/extract-times.ts",
     "reapply:tags": "tsx --env-file=.env.local src/lib/server/scraper/reapply-tags.ts",
     "import:ciqual": "tsx --env-file=.env.local src/lib/server/ciqual/import.ts",
@@ -21,7 +22,10 @@
     "compute:nutrition": "tsx --env-file=.env.local src/lib/server/ciqual/compute.ts",
     "normalize:servings": "tsx --env-file=.env.local scripts/normalize-servings.ts",
     "estimate:points": "tsx --env-file=.env.local scripts/estimate-missing-points.ts",
-    "reparse": "tsx --env-file=.env.local src/lib/server/scraper/reparse.ts"
+    "reparse": "tsx --env-file=.env.local src/lib/server/scraper/reparse.ts",
+    "ww:fill": "tsx scripts/ww-fill.ts",
+    "ww:build": "tsx scripts/ww-build-data.ts",
+    "ww:test": "tsx scripts/test-ww-lookup.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

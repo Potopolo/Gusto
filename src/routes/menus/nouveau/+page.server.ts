@@ -29,14 +29,18 @@ export const actions: Actions = {
     const data = await request.formData();
     const startDateStr = (data.get('startDate') ?? '').toString();
     const peopleCount = Math.max(1, parseInt((data.get('peopleCount') ?? '2').toString(), 10) || 2);
+    const wantBreakfast = data.get('breakfast') === 'on';
     const wantLunch = data.get('lunch') === 'on';
+    const wantSnack = data.get('snack') === 'on';
     const wantDinner = data.get('dinner') === 'on';
 
     const mealsPerDay: string[] = [];
+    if (wantBreakfast) mealsPerDay.push('petit-déj');
     if (wantLunch) mealsPerDay.push('déjeuner');
+    if (wantSnack) mealsPerDay.push('goûter');
     if (wantDinner) mealsPerDay.push('dîner');
     if (mealsPerDay.length === 0) {
-      return fail(400, { error: 'Choisis au moins un repas (déjeuner et/ou dîner).' });
+      return fail(400, { error: 'Choisis au moins un repas à générer.' });
     }
 
     const startDate = new Date(startDateStr + 'T00:00:00');

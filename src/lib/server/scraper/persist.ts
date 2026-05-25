@@ -49,6 +49,12 @@ const TAG_TO_SLUGS: Record<string, string[]> = {
   aperitifs: ['apero'],
   apéritif: ['apero'],
   boissons: ['boisson'],
+  entrees: ['entree'],
+  entrées: ['entree'],
+  // fourchette-et-bikini URL slugs (lowercased, accent-less)
+  'petit-dejeuner-et-gouter': ['petit-dej', 'gouter'],
+  accompagnements: ['accompagnement'],
+  accompagnement: ['accompagnement'],
   // Équipement
   cookéo: ['cookeo'],
   cookeo: ['cookeo'],

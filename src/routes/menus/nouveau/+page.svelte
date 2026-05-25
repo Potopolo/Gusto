@@ -58,9 +58,21 @@
 
     <fieldset>
       <legend class="mb-2 block text-sm font-medium">Repas à générer</legend>
+      <p class="mb-2 text-xs text-gusto-green-700/70">
+        Déjeuner et dîner sont cochés par défaut. Tu peux aussi inclure le petit-déjeuner ou le
+        goûter — Gusto piochera dans les recettes adaptées à chaque créneau.
+      </p>
       <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="breakfast" />
+        <span>Petit-déjeuner</span>
+      </label>
+      <label class="mt-2 flex items-center gap-2 text-sm">
         <input type="checkbox" name="lunch" checked />
         <span>Déjeuner</span>
+      </label>
+      <label class="mt-2 flex items-center gap-2 text-sm">
+        <input type="checkbox" name="snack" />
+        <span>Goûter</span>
       </label>
       <label class="mt-2 flex items-center gap-2 text-sm">
         <input type="checkbox" name="dinner" checked />

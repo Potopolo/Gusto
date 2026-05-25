@@ -152,7 +152,9 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions: Actions = {
-  add: async ({ request, params }) => {
+  add: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 
@@ -186,13 +188,16 @@ export const actions: Actions = {
       mealType,
       recipeId,
       servings,
-      position: (last?.position ?? -1) + 1
+      position: (last?.position ?? -1) + 1,
+      isManual: true
     });
 
     return { added: true };
   },
 
-  update: async ({ request, params }) => {
+  update: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 
@@ -220,7 +225,9 @@ export const actions: Actions = {
     return { updated: true };
   },
 
-  remove: async ({ request, params }) => {
+  remove: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404);
     const data = await request.formData();
@@ -237,7 +244,9 @@ export const actions: Actions = {
    * slot's meal type (no desserts in déjeuner/dîner, etc.). Excludes the
    * current recipe so the user always sees something new.
    */
-  reroll: async ({ request, params }) => {
+  reroll: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
     const data = await request.formData();
@@ -285,7 +294,11 @@ export const actions: Actions = {
         slugs.has('dessert') ||
         slugs.has('gourmand');
       return isRecipeForMealType(
-        { categories: Array.from(slugs).map((slug) => ({ slug })), isSweet },
+        {
+          categories: Array.from(slugs).map((slug) => ({ slug })),
+          isSweet,
+          name: r.nameFr
+        },
         slot.mealType
       );
     });
@@ -381,7 +394,9 @@ export const actions: Actions = {
    * Generate (or regenerate) the shopping list for this menu.
    * One list per menu — re-running overwrites the previous one.
    */
-  generateShoppingList: async ({ params }) => {
+  generateShoppingList: async ({ params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const menuId = parseInt(params.id ?? "", 10);
     if (!Number.isFinite(menuId)) return fail(404, { error: 'Menu introuvable.' });
 

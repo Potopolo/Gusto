@@ -20,6 +20,7 @@ import {
   computePoints,
   ZERO_NUTRITION
 } from './nutrition';
+import { isFreeIngredient } from '../ww/lookup';
 
 async function main() {
   const url = process.env.LIBSQL_URL ?? 'file:./data/local.db';
@@ -77,7 +78,37 @@ async function main() {
     }
 
     const perServing = divideNutrition(total, recipe.servings);
-    const points = computePoints(perServing);
+    let points: number | null = computePoints(perServing);
+
+    // WW override — if every ingredient (canonical name or raw text) is
+    // either a ZeroPoints food or a neutral seasoning, the recipe itself
+    // is 0 pts. We check BOTH the canonical CIQUAL name (when present)
+    // AND the raw recipe text, because a wrong CIQUAL match can produce
+    // a "Saucisson sec" canonical for a "Chocolat" raw — relying on the
+    // canonical alone would give false positives.
+    const allFree = rows.every(({ ri, ing }) => {
+      if (ing?.nameFr && !isFreeIngredient(ing.nameFr)) return false;
+      if (!isFreeIngredient(ri.rawText)) return false;
+      return true;
+    });
+
+    if (allFree) {
+      points = 0;
+    } else if (points === 0 && perServing.kcal < 50) {
+      // Safe guard: the formula returned 0 but the aggregated nutrition
+      // is implausibly low (< 50 kcal/portion) AND the WW override didn't
+      // validate. This usually means the parser missed ingredients
+      // (sucre, beurre, chocolat…) or CIQUAL made a wrong match. Rather
+      // than publish a misleading "0 pts" badge, mark it as unknown so
+      // estimate-missing-points.ts can take over with a rule-based guess.
+      // 50 kcal is a deliberately low bar — a genuine ZeroPoints salade
+      // de concombre still clears it easily (~70-90 kcal/portion).
+      points = null;
+    } else if (points === 0 && rows.length < 3) {
+      // Same idea: a recipe with fewer than 3 parsed ingredients is
+      // almost certainly a parse miss when it isn't ZP-validated.
+      points = null;
+    }
 
     await db
       .update(recipes)

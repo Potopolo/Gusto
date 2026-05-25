@@ -38,53 +38,67 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const userId = locals.currentUser.id;
   const targetId = id as number;
 
+  // The toggle is wrapped in a transaction so two concurrent clicks can't
+  // both observe "not favorited" and then race two INSERTs into the unique
+  // PK (userId, recipeId). The second one would otherwise crash with a 500.
   if (kind === 'recipe') {
-    const [existing] = await db
-      .select()
-      .from(favoriteRecipes)
-      .where(
-        and(eq(favoriteRecipes.userId, userId), eq(favoriteRecipes.recipeId, targetId))
-      )
-      .limit(1);
-    if (existing) {
-      await db
-        .delete(favoriteRecipes)
+    const favorited = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(favoriteRecipes)
         .where(
           and(
             eq(favoriteRecipes.userId, userId),
             eq(favoriteRecipes.recipeId, targetId)
           )
-        );
-      return json({ favorited: false });
-    }
-    await db.insert(favoriteRecipes).values({ userId, recipeId: targetId });
-    return json({ favorited: true });
+        )
+        .limit(1);
+      if (existing) {
+        await tx
+          .delete(favoriteRecipes)
+          .where(
+            and(
+              eq(favoriteRecipes.userId, userId),
+              eq(favoriteRecipes.recipeId, targetId)
+            )
+          );
+        return false;
+      }
+      await tx.insert(favoriteRecipes).values({ userId, recipeId: targetId });
+      return true;
+    });
+    return json({ favorited });
   }
 
   if (kind === 'ingredient') {
-    const [existing] = await db
-      .select()
-      .from(favoriteIngredients)
-      .where(
-        and(
-          eq(favoriteIngredients.userId, userId),
-          eq(favoriteIngredients.ingredientId, targetId)
-        )
-      )
-      .limit(1);
-    if (existing) {
-      await db
-        .delete(favoriteIngredients)
+    const favorited = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(favoriteIngredients)
         .where(
           and(
             eq(favoriteIngredients.userId, userId),
             eq(favoriteIngredients.ingredientId, targetId)
           )
-        );
-      return json({ favorited: false });
-    }
-    await db.insert(favoriteIngredients).values({ userId, ingredientId: targetId });
-    return json({ favorited: true });
+        )
+        .limit(1);
+      if (existing) {
+        await tx
+          .delete(favoriteIngredients)
+          .where(
+            and(
+              eq(favoriteIngredients.userId, userId),
+              eq(favoriteIngredients.ingredientId, targetId)
+            )
+          );
+        return false;
+      }
+      await tx
+        .insert(favoriteIngredients)
+        .values({ userId, ingredientId: targetId });
+      return true;
+    });
+    return json({ favorited });
   }
 
   throw error(400, 'kind doit être "recipe" ou "ingredient".');

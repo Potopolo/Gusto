@@ -7,11 +7,13 @@ import {
   categories,
   favoriteRecipes,
   favoriteIngredients,
+  ingredients as ingredientsTable,
   menus,
   menuSlots
 } from '$lib/server/db/schema';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { error, fail, type Actions } from '@sveltejs/kit';
+import { findZeroPointsEntry } from '$lib/server/ww/lookup';
 import type { PageServerLoad } from './$types';
 
 const ALLOWED_MEAL_TYPES = [
@@ -94,10 +96,35 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
   }
 
-  const ingredientsWithFav = ingredients.map((ri) => ({
-    ...ri,
-    isFavorite: ri.ingredientId != null && ingFavSet.has(ri.ingredientId)
-  }));
+  // WW lookup — annotate each ingredient. We test the canonical name when
+  // a CIQUAL link exists (more reliable) and fall back to the recipe's raw
+  // text otherwise. Ingredients without any match are returned untouched.
+  const canonicalIds = ingredients
+    .map((i) => i.ingredientId)
+    .filter((id): id is number => id != null);
+  const canonicalNames = new Map<number, string>();
+  if (canonicalIds.length > 0) {
+    const rows = await db
+      .select({ id: ingredientsTable.id, nameFr: ingredientsTable.nameFr })
+      .from(ingredientsTable)
+      .where(inArray(ingredientsTable.id, canonicalIds));
+    for (const r of rows) canonicalNames.set(r.id, r.nameFr);
+  }
+
+  const ingredientsWithFav = ingredients.map((ri) => {
+    const canonical =
+      ri.ingredientId != null ? canonicalNames.get(ri.ingredientId) ?? null : null;
+    const probe = canonical ?? ri.rawText;
+    const ww = findZeroPointsEntry(probe);
+    return {
+      ...ri,
+      isFavorite: ri.ingredientId != null && ingFavSet.has(ri.ingredientId),
+      wwZero: ww !== null,
+      wwName: ww?.name ?? null
+    };
+  });
+
+  const wwZeroCount = ingredientsWithFav.filter((i) => i.wwZero).length;
 
   // Drop the heavy raw HTML cache from client payload
   const { rawHtmlCache: _drop, ...recipeLight } = recipe;
@@ -120,13 +147,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     tags: tagRows.map((t) => t.tag),
     categories: cats,
     matchStats: { matched: matchedIngs, total: totalIngs },
+    wwStats: { zeroCount: wwZeroCount, total: totalIngs },
     menus: userMenus
   };
 };
 
 export const actions: Actions = {
   /** Add this recipe as a new slot in an existing menu. */
-  addToMenu: async ({ request, params }) => {
+  addToMenu: async ({ request, params, locals }) => {
+    if (!locals.currentUser) return fail(401, { error: 'Non authentifié.' });
+
     const slug = params.slug ?? '';
     if (!slug) return fail(404, { error: 'Recette introuvable.' });
     const [recipe] = await db
@@ -167,7 +197,8 @@ export const actions: Actions = {
       mealType,
       recipeId: recipe.id,
       servings,
-      position: (last?.position ?? -1) + 1
+      position: (last?.position ?? -1) + 1,
+      isManual: true
     });
 
     return { addedToMenu: true, menuId };
