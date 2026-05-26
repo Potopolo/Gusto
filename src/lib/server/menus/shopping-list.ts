@@ -42,6 +42,88 @@ function normalizeKey(s: string): string {
 }
 
 /**
+ * Build a "stem" from an ingredient name that's stable across the small
+ * differences in how the same food shows up in different recipes:
+ *   "Oignon, rouge, cru"          → "oignon"
+ *   "Oignons rouges"              → "oignon"
+ *   "Tomates cerises bio"         → "tomate"
+ *   "Crème liquide entière 30%"   → "creme"
+ *   "Sucre en poudre"             → "sucre"
+ * The stem groups the buckets; the displayed name remains whichever
+ * shortest variant we saw first (handled by the caller).
+ */
+const STEM_STOPWORDS = new Set([
+  'rouge', 'rouges', 'vert', 'verts', 'verte', 'vertes',
+  'jaune', 'jaunes', 'blanc', 'blanche', 'blancs', 'blanches',
+  'noir', 'noirs', 'noire', 'noires',
+  'cru', 'crue', 'crus', 'crues',
+  'cuit', 'cuite', 'cuits', 'cuites',
+  'frais', 'fraiche', 'fraiches',
+  'bio', 'extra', 'nature', 'naturel', 'naturelle',
+  'entier', 'entiere', 'entieres',
+  'liquide', 'epaisse', 'epais',
+  'en', 'de', 'du', 'des', 'la', 'le', 'les',
+  'a', 'au', 'aux', 'et', 'ou',
+  'poudre', 'morceau', 'morceaux', 'pot', 'tube',
+  'conserve', 'surgele', 'surgeles', 'surgelee', 'surgelees'
+]);
+
+function stemName(name: string): string {
+  const words = normalizeKey(name)
+    .split(/[\s,()/-]+/)
+    .filter(Boolean)
+    .filter((w) => !STEM_STOPWORDS.has(w) && !/^\d/.test(w));
+  if (words.length === 0) return normalizeKey(name);
+  // Drop any trailing 's' / 'x' on each kept word to fold plurals.
+  return words.map((w) => w.replace(/[sx]$/, '')).join(' ');
+}
+
+/** Convert a quantity+unit to a base unit (g for weights, ml for volumes).
+ *  Returns the original pair when the unit is unknown (e.g. "pincée",
+ *  "tranche", "boîte") so those buckets stay distinct. */
+const WEIGHTS_TO_G: Record<string, number> = {
+  g: 1, gr: 1, gramme: 1, grammes: 1,
+  kg: 1000, kgs: 1000,
+  mg: 0.001
+};
+const VOLUMES_TO_ML: Record<string, number> = {
+  ml: 1, millilitre: 1, millilitres: 1,
+  cl: 10, centilitre: 10, centilitres: 10,
+  dl: 100, decilitre: 100, decilitres: 100,
+  l: 1000, litre: 1000, litres: 1000
+};
+
+function toBaseUnit(
+  qty: number | null,
+  unit: string | null
+): { qty: number | null; baseUnit: string | null } {
+  if (qty == null) return { qty: null, baseUnit: unit };
+  if (!unit) return { qty, baseUnit: null };
+  const u = unit.toLowerCase().trim();
+  if (WEIGHTS_TO_G[u] != null) return { qty: qty * WEIGHTS_TO_G[u]!, baseUnit: 'g' };
+  if (VOLUMES_TO_ML[u] != null) return { qty: qty * VOLUMES_TO_ML[u]!, baseUnit: 'ml' };
+  return { qty, baseUnit: u };
+}
+
+/** Re-humanize the aggregated total: 1200g → "1.2 kg", 750ml → "75 cl". */
+function fromBaseUnit(
+  qty: number | null,
+  baseUnit: string | null
+): { qty: number | null; unit: string | null } {
+  if (qty == null) return { qty: null, unit: baseUnit };
+  if (baseUnit === 'g') {
+    if (qty >= 1000) return { qty: Math.round((qty / 1000) * 100) / 100, unit: 'kg' };
+    return { qty: Math.round(qty), unit: 'g' };
+  }
+  if (baseUnit === 'ml') {
+    if (qty >= 1000) return { qty: Math.round((qty / 1000) * 100) / 100, unit: 'L' };
+    if (qty >= 100 && qty % 10 === 0) return { qty: qty / 10, unit: 'cl' };
+    return { qty: Math.round(qty), unit: 'ml' };
+  }
+  return { qty: Math.round(qty * 10) / 10, unit: baseUnit };
+}
+
+/**
  * Strip a raw ingredient line down to a "shopping-friendly" name.
  * Removes leading quantity + unit, parenthetical notes, and trailing
  * suffixes like "(optionnel)".
@@ -106,11 +188,13 @@ export async function generateShoppingItems(menuId: number): Promise<AggregatedI
     linesByRecipe.set(l.recipeId, list);
   }
 
-  // 2) Aggregate per (normalized name, unit). Skip optional lines.
+  // 2) Aggregate per (stemmed name + base unit). Skip optional lines.
+  // We keep the shortest seen name as the display label so the user gets
+  // "Oignon" rather than "Oignon, rouge, cru".
   type Bucket = {
     nameFr: string;
-    qty: number | null;
-    unit: string | null;
+    qty: number | null;       // accumulated in base unit (g, ml, or count)
+    baseUnit: string | null;
     note: string | null;
     ingredientId: number | null;
   };
@@ -128,21 +212,33 @@ export async function generateShoppingItems(menuId: number): Promise<AggregatedI
       const name = line.canonicalName ?? cleanRawText(line.rawText);
       if (!name) continue;
 
-      const key = `${normalizeKey(name)}|${line.unit ?? ''}`;
       const scaledQty = line.quantity != null ? line.quantity * factor : null;
+      const { qty: baseQty, baseUnit } = toBaseUnit(scaledQty, line.unit);
+
+      const key = `${stemName(name)}|${baseUnit ?? ''}`;
 
       const existing = buckets.get(key);
       if (existing) {
-        if (existing.qty != null && scaledQty != null) {
-          existing.qty += scaledQty;
+        if (existing.qty != null && baseQty != null) {
+          existing.qty += baseQty;
         } else if (existing.qty == null) {
-          existing.qty = scaledQty;
+          existing.qty = baseQty;
+        }
+        // Prefer the shorter name as display label — "Oignon" wins over
+        // "Oignon, rouge, cru" because it's friendlier on the list.
+        if (name.length < existing.nameFr.length) {
+          existing.nameFr = name;
+        }
+        // Keep the first non-null ingredientId we encountered (used by
+        // categorize() and downstream features).
+        if (existing.ingredientId == null && line.ingredientId != null) {
+          existing.ingredientId = line.ingredientId;
         }
       } else {
         buckets.set(key, {
           nameFr: name,
-          qty: scaledQty,
-          unit: line.unit,
+          qty: baseQty,
+          baseUnit,
           note: null,
           ingredientId: line.ingredientId
         });
@@ -150,10 +246,16 @@ export async function generateShoppingItems(menuId: number): Promise<AggregatedI
     }
   }
 
-  // 3) Categorize each bucket and round quantities to 1 decimal
-  return Array.from(buckets.values()).map((b) => ({
-    ...b,
-    qty: b.qty != null ? Math.round(b.qty * 10) / 10 : null,
-    category: categorize(b.nameFr)
-  }));
+  // 3) Humanize quantities (1200 g → "1.2 kg") and categorize.
+  return Array.from(buckets.values()).map((b) => {
+    const { qty, unit } = fromBaseUnit(b.qty, b.baseUnit);
+    return {
+      nameFr: b.nameFr,
+      qty,
+      unit,
+      note: b.note,
+      ingredientId: b.ingredientId,
+      category: categorize(b.nameFr)
+    };
+  });
 }

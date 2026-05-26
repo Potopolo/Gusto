@@ -11,7 +11,7 @@
 import { and, eq, inArray, isNotNull, lte } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { recipes, recipeCategories, categories, profiles, recipeTags } from '$lib/server/db/schema';
-import { SWEET_RE, NOT_A_MEAL_RE } from '$lib/menus/sweet';
+import { SWEET_RE, isNotAMeal } from '$lib/menus/sweet';
 
 const SEASON_BY_MONTH: Record<number, string> = {
   3: 'printemps', 4: 'printemps', 5: 'printemps',
@@ -116,7 +116,7 @@ export async function generateMenu(opts: GenerateOpts): Promise<GeneratedSlot[]>
   const namedRecipes = await db.select({ id: recipes.id, nameFr: recipes.nameFr }).from(recipes);
   for (const r of namedRecipes) {
     if (SWEET_RE.test(r.nameFr)) isNonMain.add(r.id);
-    if (NOT_A_MEAL_RE.test(r.nameFr)) isNonMain.add(r.id);
+    if (isNotAMeal(r.nameFr)) isNonMain.add(r.id);
   }
   const tagRows = await db.select().from(recipeTags);
   for (const t of tagRows) if (SWEET_RE.test(t.tag)) isNonMain.add(t.recipeId);

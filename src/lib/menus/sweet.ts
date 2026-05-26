@@ -23,9 +23,34 @@ export function isSweetByName(text: string | null | undefined): boolean {
 export const NOT_A_MEAL_RE =
   /\b(ketchup|mayonnaise|moutarde|sauce(?!\s+(bolognaise|tomate\s+pour\s+p[âa]tes|au\s+poisson))[^,]*|vinaigrette|pesto|tapenade|houmous|guacamole|tartinade|confit(?:ure)?|gel[ée]e|coulis|sirop|caramel\s+liquide|pickles?|chutney|relish|condiment|marinade|ras\s+el\s+hanout|pain\s+(?:perdu\s+)?(?:de\s+mie|maison)|p[âa]te\s+(?:bris[ée]e|sabl[ée]e|feuillet[ée]e|[àa]\s+(?:tarte|pizza|cr[êe]pes?|gaufres?|tartiner))|pizza\s+dough|yaourt(?:\s+grec)?|fromage\s+blanc(?:\s+0%)?(?:\s+nature)?|skyr|kefir|smoothie|jus\s+de|infusion|th[ée](?:\s+glac[ée])?|tisane|caf[ée]\s+(?:glac[ée]|frapp[ée])|chocolat\s+chaud|cocktail|granola|m[üu]esli|porridge|barre\s+(?:de\s+c[ée]r[ée]ales|prot[ée]in[ée]e)|en[- ]cas|snack|gressins?|crackers?|chips?|popcorn|pop[- ]corn)\b/i;
 
+/** True when the recipe name "leads with" a non-meal keyword — meaning
+ *  the dish itself IS the condiment / drink / snack, as opposed to
+ *  a real meal that merely contains one as an ingredient.
+ *
+ *  Examples:
+ *    "Ketchup maison"         → true  (1st word matches)
+ *    "Sauce ketchup pour…"    → true  (2nd word matches)
+ *    "Pâtes au pesto"         → false (pesto is the 3rd word)
+ *    "Bowl smoothie banane"   → false (smoothie is the 2nd word — TODO?)
+ *    "Smoothie banane"        → true
+ *    "Salade de yaourt grec"  → false (it's a salad that uses yaourt)
+ *    "Yaourt grec maison"     → true
+ *
+ *  Implementation: keep only the first two words of the name and run
+ *  the existing regex on that head. We strip accents so the regex's
+ *  word-class \b works correctly on french.
+ */
 export function isNotAMeal(text: string | null | undefined): boolean {
   if (!text) return false;
-  return NOT_A_MEAL_RE.test(text);
+  const head = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[\s,.;:!?()-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ');
+  return NOT_A_MEAL_RE.test(head);
 }
 
 /**
@@ -41,7 +66,14 @@ export function isRecipeForMealType(
   mealType: string
 ): boolean {
   const slugs = new Set(recipe.categories.map((c) => c.slug));
-  const sweet = !!recipe.isSweet || slugs.has('dessert') || slugs.has('gourmand');
+  // Sweet detection has 3 sources: explicit flag from the parent, a
+  // tagged-as-dessert/gourmand category, and the name itself (catches
+  // "Mousse au chocolat", "Pancakes" that never got a dessert tag).
+  const sweet =
+    !!recipe.isSweet ||
+    slugs.has('dessert') ||
+    slugs.has('gourmand') ||
+    isSweetByName(recipe.name);
   const notAMeal = isNotAMeal(recipe.name);
 
   switch (mealType) {
