@@ -26,6 +26,10 @@
   let creditsOpen = $state(false);
   let savedNotice = $state(false);
   let emailSavedNotice = $state(false);
+  /** Two-step delete: first click reveals the confirmation row. */
+  let deleteAsking = $state(false);
+  /** Surfaced when the server refuses (e.g. last profile of the household). */
+  let deleteError = $state('');
 
   $effect(() => {
     if (open) {
@@ -37,6 +41,8 @@
       creditsOpen = false;
       savedNotice = false;
       emailSavedNotice = false;
+      deleteAsking = false;
+      deleteError = '';
     }
   });
 
@@ -342,8 +348,8 @@
         {/if}
       </div>
 
-      <!-- Déconnexion -->
-      <div class="border-t border-gusto-green-100 pt-4">
+      <!-- Compte — déconnexion + suppression -->
+      <div class="space-y-3 border-t border-gusto-green-100 pt-4">
         <form method="post" action="/parametres?/logout">
           <button
             type="submit"
@@ -352,6 +358,61 @@
             Changer de profil / se déconnecter
           </button>
         </form>
+
+        {#if !deleteAsking}
+          <button
+            type="button"
+            onclick={() => {
+              deleteAsking = true;
+              deleteError = '';
+            }}
+            class="block text-xs font-medium text-gusto-pink-700 hover:text-gusto-pink-900 hover:underline"
+          >
+            Supprimer ce profil
+          </button>
+        {:else}
+          <!-- Confirmation inline — destructive action, can't be undone -->
+          <form
+            method="post"
+            action="/parametres?/deleteProfile"
+            use:enhance={() =>
+              async ({ result }) => {
+                // On success the server redirects to /choisir-profil; we
+                // only get here when the action returned a `failure`.
+                if (result.type === 'failure') {
+                  deleteError =
+                    (result.data?.error as string) ?? 'Suppression refusée.';
+                }
+              }}
+            class="rounded-md border border-gusto-pink-200 bg-gusto-pink-50 p-3 text-xs text-gusto-green-900"
+          >
+            <p class="mb-2 font-medium">
+              Supprimer le profil <span class="italic">{currentLabel}</span> ?
+            </p>
+            <p class="mb-3 text-gusto-green-700/85">
+              Tes favoris seront perdus. Les menus et listes de courses du foyer restent.
+              Action irréversible.
+            </p>
+            {#if deleteError}
+              <p class="mb-2 text-gusto-pink-900">{deleteError}</p>
+            {/if}
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                onclick={() => (deleteAsking = false)}
+                class="rounded-md px-3 py-1.5 text-xs text-gusto-green-700 hover:text-gusto-green-900"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                class="rounded-md bg-gusto-pink-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-gusto-pink-900"
+              >
+                Supprimer définitivement
+              </button>
+            </div>
+          </form>
+        {/if}
       </div>
     </div>
   </div>
