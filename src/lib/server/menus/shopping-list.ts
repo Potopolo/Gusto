@@ -62,10 +62,14 @@ const STEM_STOPWORDS = new Set([
   'bio', 'extra', 'nature', 'naturel', 'naturelle',
   'entier', 'entiere', 'entieres',
   'liquide', 'epaisse', 'epais',
+  'vierge', 'vierges', 'pression', 'premiere', 'demi', 'demie',
   'en', 'de', 'du', 'des', 'la', 'le', 'les',
   'a', 'au', 'aux', 'et', 'ou',
   'poudre', 'morceau', 'morceaux', 'pot', 'tube',
-  'conserve', 'surgele', 'surgeles', 'surgelee', 'surgelees'
+  'conserve', 'surgele', 'surgeles', 'surgelee', 'surgelees',
+  'sechee', 'sechees', 'seche', 'seches',
+  'ciselee', 'ciselees', 'ciseles', 'cisele',
+  'haches', 'hachees', 'hachee', 'hache'
 ]);
 
 function stemName(name: string): string {
@@ -80,7 +84,14 @@ function stemName(name: string): string {
 
 /** Convert a quantity+unit to a base unit (g for weights, ml for volumes).
  *  Returns the original pair when the unit is unknown (e.g. "pincée",
- *  "tranche", "boîte") so those buckets stay distinct. */
+ *  "tranche", "boîte") so those buckets stay distinct.
+ *
+ *  Cooking spoon units are folded into millilitres with the customary
+ *  French equivalents (1 CS ≈ 15 ml, 1 cc ≈ 5 ml). It's not perfectly
+ *  accurate for dense ingredients like flour or honey, but the shopping
+ *  list is meant for grocery quantities, not strict recipes — and the
+ *  alternative (a second "Sauce soja: 4 CS" row alongside "Sauce soja:
+ *  100 ml") is worse. */
 const WEIGHTS_TO_G: Record<string, number> = {
   g: 1, gr: 1, gramme: 1, grammes: 1,
   kg: 1000, kgs: 1000,
@@ -90,7 +101,14 @@ const VOLUMES_TO_ML: Record<string, number> = {
   ml: 1, millilitre: 1, millilitres: 1,
   cl: 10, centilitre: 10, centilitres: 10,
   dl: 100, decilitre: 100, decilitres: 100,
-  l: 1000, litre: 1000, litres: 1000
+  l: 1000, litre: 1000, litres: 1000,
+  // Cooking-spoon approximations (FR convention).
+  cs: 15, 'c.s.': 15, 'c. s.': 15,
+  cuillere: 15, cuilleres: 15,
+  'cuillère': 15, 'cuillères': 15,
+  'cuillère à soupe': 15, 'cuilleres a soupe': 15,
+  cc: 5, 'c.c.': 5, 'c. c.': 5,
+  'cuillère à café': 5, 'cuilleres a cafe': 5
 };
 
 function toBaseUnit(
@@ -99,7 +117,7 @@ function toBaseUnit(
 ): { qty: number | null; baseUnit: string | null } {
   if (qty == null) return { qty: null, baseUnit: unit };
   if (!unit) return { qty, baseUnit: null };
-  const u = unit.toLowerCase().trim();
+  const u = unit.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
   if (WEIGHTS_TO_G[u] != null) return { qty: qty * WEIGHTS_TO_G[u]!, baseUnit: 'g' };
   if (VOLUMES_TO_ML[u] != null) return { qty: qty * VOLUMES_TO_ML[u]!, baseUnit: 'ml' };
   return { qty, baseUnit: u };
@@ -188,13 +206,16 @@ export async function generateShoppingItems(menuId: number): Promise<AggregatedI
     linesByRecipe.set(l.recipeId, list);
   }
 
-  // 2) Aggregate per (stemmed name + base unit). Skip optional lines.
-  // We keep the shortest seen name as the display label so the user gets
-  // "Oignon" rather than "Oignon, rouge, cru".
+  // 2) Aggregate. The bucket key is the STEMMED name only — variants in
+  //    units stack inside the same bucket and we merge compatible ones
+  //    in a post-pass. That fuses "1 CS d'huile" with "huile d'olive"
+  //    (qty unknown) or "200 g de farine" with "1 CS de farine" — we'd
+  //    rather show one row per ingredient on a shopping list, even at
+  //    the cost of a tiny approximation on cooking spoons.
+  type Sub = { qty: number | null; baseUnit: string | null };
   type Bucket = {
     nameFr: string;
-    qty: number | null;       // accumulated in base unit (g, ml, or count)
-    baseUnit: string | null;
+    subs: Sub[];
     note: string | null;
     ingredientId: number | null;
   };
@@ -215,30 +236,19 @@ export async function generateShoppingItems(menuId: number): Promise<AggregatedI
       const scaledQty = line.quantity != null ? line.quantity * factor : null;
       const { qty: baseQty, baseUnit } = toBaseUnit(scaledQty, line.unit);
 
-      const key = `${stemName(name)}|${baseUnit ?? ''}`;
+      const key = stemName(name);
 
       const existing = buckets.get(key);
       if (existing) {
-        if (existing.qty != null && baseQty != null) {
-          existing.qty += baseQty;
-        } else if (existing.qty == null) {
-          existing.qty = baseQty;
-        }
-        // Prefer the shorter name as display label — "Oignon" wins over
-        // "Oignon, rouge, cru" because it's friendlier on the list.
-        if (name.length < existing.nameFr.length) {
-          existing.nameFr = name;
-        }
-        // Keep the first non-null ingredientId we encountered (used by
-        // categorize() and downstream features).
+        existing.subs.push({ qty: baseQty, baseUnit });
+        if (name.length < existing.nameFr.length) existing.nameFr = name;
         if (existing.ingredientId == null && line.ingredientId != null) {
           existing.ingredientId = line.ingredientId;
         }
       } else {
         buckets.set(key, {
           nameFr: name,
-          qty: baseQty,
-          baseUnit,
+          subs: [{ qty: baseQty, baseUnit }],
           note: null,
           ingredientId: line.ingredientId
         });
@@ -246,9 +256,59 @@ export async function generateShoppingItems(menuId: number): Promise<AggregatedI
     }
   }
 
-  // 3) Humanize quantities (1200 g → "1.2 kg") and categorize.
+  // 3) Resolve each bucket to a single (qty, unit) pair.
+  //    Strategy:
+  //    a) Sum quantities sharing the same base unit.
+  //    b) Drop the unit-less / qty-less sub when we have any sub with
+  //       a real quantity — "huile d'olive (qsp)" is implied as soon as
+  //       another line already mentions an actual amount.
+  //    c) When multiple incompatible base units remain (e.g. 200 g
+  //       *and* 1 boîte), keep the one with the largest converted
+  //       weight as the primary; the rest is silently merged into the
+  //       same row (shopping-list scope, not exactness scope).
   return Array.from(buckets.values()).map((b) => {
-    const { qty, unit } = fromBaseUnit(b.qty, b.baseUnit);
+    // Group by baseUnit.
+    const byBaseUnit = new Map<string, number>(); // baseUnit -> total qty
+    let hasUnknownQty = false;
+    for (const s of b.subs) {
+      if (s.qty == null) {
+        hasUnknownQty = true;
+        continue;
+      }
+      const key = s.baseUnit ?? '';
+      byBaseUnit.set(key, (byBaseUnit.get(key) ?? 0) + s.qty);
+    }
+
+    // If we have at least one real qty, ignore the unit-less / qty-less
+    // sub: it's purely the same ingredient mentioned without a count.
+    if (byBaseUnit.size === 0 && hasUnknownQty) {
+      return {
+        nameFr: b.nameFr,
+        qty: null,
+        unit: null,
+        note: b.note,
+        ingredientId: b.ingredientId,
+        category: categorize(b.nameFr)
+      };
+    }
+
+    // Pick the unit with the biggest summed quantity as the primary —
+    // it's the one most useful on a shopping list.
+    let primaryBaseUnit: string | null = null;
+    let primaryQty = -Infinity;
+    for (const [u, q] of byBaseUnit) {
+      // Prefer real metric units (g, ml) over count-like units when
+      // both exist for the same stem (e.g. someone listed "2 tomates"
+      // in one recipe and "300 g de tomates" in another — the gram
+      // total is the relevant grocery target).
+      const score = u === 'g' || u === 'ml' ? q + 1e9 : q;
+      if (score > primaryQty) {
+        primaryQty = score;
+        primaryBaseUnit = u;
+      }
+    }
+    const total = byBaseUnit.get(primaryBaseUnit ?? '') ?? null;
+    const { qty, unit } = fromBaseUnit(total, primaryBaseUnit || null);
     return {
       nameFr: b.nameFr,
       qty,

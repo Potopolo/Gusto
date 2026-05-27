@@ -8,7 +8,10 @@
 // else is just typed boilerplate — we want to assert behaviour on the
 // stem + unit aggregation, not the SQL pull.
 const WEIGHTS_TO_G: Record<string, number> = { g: 1, kg: 1000, mg: 0.001, gr: 1 };
-const VOLUMES_TO_ML: Record<string, number> = { ml: 1, cl: 10, dl: 100, l: 1000 };
+const VOLUMES_TO_ML: Record<string, number> = {
+  ml: 1, cl: 10, dl: 100, l: 1000,
+  cs: 15, cc: 5
+};
 
 const STEM_STOPWORDS = new Set([
   'rouge', 'rouges', 'vert', 'verts', 'verte', 'vertes',
@@ -20,10 +23,14 @@ const STEM_STOPWORDS = new Set([
   'bio', 'extra', 'nature', 'naturel', 'naturelle',
   'entier', 'entiere', 'entieres',
   'liquide', 'epaisse', 'epais',
+  'vierge', 'vierges', 'pression', 'premiere', 'demi', 'demie',
   'en', 'de', 'du', 'des', 'la', 'le', 'les',
   'a', 'au', 'aux', 'et', 'ou',
   'poudre', 'morceau', 'morceaux', 'pot', 'tube',
-  'conserve', 'surgele', 'surgeles', 'surgelee', 'surgelees'
+  'conserve', 'surgele', 'surgeles', 'surgelee', 'surgelees',
+  'sechee', 'sechees', 'seche', 'seches',
+  'ciselee', 'ciselees', 'ciseles', 'cisele',
+  'haches', 'hachees', 'hachee', 'hache'
 ]);
 
 function normalizeKey(s: string): string {
@@ -60,23 +67,47 @@ function fromBaseUnit(qty: number | null, baseUnit: string | null) {
   return { qty: Math.round(qty * 10) / 10, unit: baseUnit };
 }
 
-// Mini in-memory aggregator that mirrors generateShoppingItems
+// Mini in-memory aggregator — same shape & behaviour as the production
+// `generateShoppingItems`. Stems-only keys, sub-grouping per base unit,
+// primary pick = largest gram/ml total.
 type Line = { name: string; qty: number | null; unit: string | null };
 function aggregate(lines: Line[]) {
-  type Bucket = { nameFr: string; qty: number | null; baseUnit: string | null };
+  type Sub = { qty: number | null; baseUnit: string | null };
+  type Bucket = { nameFr: string; subs: Sub[] };
   const buckets = new Map<string, Bucket>();
   for (const l of lines) {
     const { qty, baseUnit } = toBaseUnit(l.qty, l.unit);
-    const key = `${stemName(l.name)}|${baseUnit ?? ''}`;
+    const key = stemName(l.name);
     const ex = buckets.get(key);
     if (ex) {
-      if (ex.qty != null && qty != null) ex.qty += qty;
-      else if (ex.qty == null) ex.qty = qty;
+      ex.subs.push({ qty, baseUnit });
       if (l.name.length < ex.nameFr.length) ex.nameFr = l.name;
-    } else buckets.set(key, { nameFr: l.name, qty, baseUnit });
+    } else buckets.set(key, { nameFr: l.name, subs: [{ qty, baseUnit }] });
   }
   return Array.from(buckets.values()).map((b) => {
-    const { qty, unit } = fromBaseUnit(b.qty, b.baseUnit);
+    const byBaseUnit = new Map<string, number>();
+    let hasUnknown = false;
+    for (const s of b.subs) {
+      if (s.qty == null) {
+        hasUnknown = true;
+        continue;
+      }
+      const k = s.baseUnit ?? '';
+      byBaseUnit.set(k, (byBaseUnit.get(k) ?? 0) + s.qty);
+    }
+    if (byBaseUnit.size === 0 && hasUnknown) {
+      return { name: b.nameFr, qty: null, unit: null };
+    }
+    let primary = '';
+    let best = -Infinity;
+    for (const [u, q] of byBaseUnit) {
+      const score = u === 'g' || u === 'ml' ? q + 1e9 : q;
+      if (score > best) {
+        best = score;
+        primary = u;
+      }
+    }
+    const { qty, unit } = fromBaseUnit(byBaseUnit.get(primary) ?? null, primary || null);
     return { name: b.nameFr, qty, unit };
   });
 }
@@ -129,14 +160,44 @@ const tests: Test[] = [
     expected: [{ name: 'Tomate', qty: 300, unit: 'g' }]
   },
   {
-    label: 'incompatible units stay separate',
+    label: 'CS + ml on the same item — folded',
     lines: [
-      { name: 'Sucre', qty: 100, unit: 'g' },
-      { name: 'Sucre vanillé', qty: 1, unit: 'sachet' }
+      { name: 'Sauce soja', qty: 4, unit: 'CS' },
+      { name: 'Sauce soja', qty: 100, unit: 'ml' }
+    ],
+    expected: [{ name: 'Sauce soja', qty: 16, unit: 'cl' }]
+  },
+  {
+    label: 'qty-less variant dropped when another has qty',
+    lines: [
+      { name: "Huile d'olive vierge extra", qty: 1, unit: 'CS' },
+      { name: "huile d'olive", qty: null, unit: null }
+    ],
+    expected: [{ name: "huile d'olive", qty: 15, unit: 'ml' }]
+  },
+  {
+    label: 'qty-less only → stays unit-less',
+    lines: [{ name: 'Sel', qty: null, unit: null }, { name: 'sel', qty: null, unit: null }],
+    expected: [{ name: 'Sel', qty: null, unit: null }]
+  },
+  {
+    label: 'g + CS on flour → unified row',
+    lines: [
+      { name: 'Farine', qty: 120, unit: 'g' },
+      { name: 'Farine', qty: 1, unit: 'CS' }
+    ],
+    // 120 g vs 15 ml — different base units. Gram wins (real metric).
+    expected: [{ name: 'Farine', qty: 120, unit: 'g' }]
+  },
+  {
+    label: 'two flavours of mustard stay separate',
+    lines: [
+      { name: 'Moutarde', qty: 2, unit: 'CS' },
+      { name: "Moutarde à l'ancienne", qty: 1, unit: 'CS' }
     ],
     expected: [
-      { name: 'Sucre', qty: 100, unit: 'g' },
-      { name: 'Sucre vanillé', qty: 1, unit: 'sachet' }
+      { name: 'Moutarde', qty: 30, unit: 'ml' },
+      { name: "Moutarde à l'ancienne", qty: 15, unit: 'ml' }
     ]
   }
 ];
